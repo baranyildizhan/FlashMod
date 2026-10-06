@@ -1,6 +1,5 @@
 package dev.baranhan.flashmod.ultimate;
 
-import dev.baranhan.flashmod.FlashSounds;
 import dev.baranhan.flashmod.config.FlashServerConfig;
 import dev.baranhan.flashmod.network.FlashNetwork;
 import dev.baranhan.flashmod.network.UltimateEventPacket;
@@ -17,8 +16,6 @@ import net.minecraft.network.chat.Component;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
-import net.minecraft.sounds.SoundEvent;
-import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
@@ -37,21 +34,13 @@ import java.util.UUID;
 
 /**
  * Sunucu otoritesi: aktivasyon, hedef, blink, stasis (UltimateScript betigiyle itme/havaya kalkis/cakilma), hasar,
- * yere carpma, iptal, cooldown.
+ * yere carpma, iptal, cooldown. Sesler tamamen istemcide (UltSounds), goruntuyle ayni zamandan calinir.
  * Zaman startGameTime'dan hesaplanir; olaylar "yapildi mi" bayraklariyla >= ile tetiklenir (lag'e dayanikli).
  */
 public final class UltimateManager {
     public static final String NOAI_KEY = "flashmod_stasis_prev_noai";
     private static final Map<UUID, UltimateSession> BY_CASTER = new HashMap<>();
     private static int nextId = 1;
-
-    /** Konumlu sunucu sesleri: {tick, ses, nerede (0 caster, 1 hedef, 2 temas)}. */
-    private static final Object[][] SOUNDS = {
-            {UltimatePhase.BLINK, "ult_blink", 0}, {16, "ult_roar_crackle", 0}, {UltimatePhase.HIDE_BODY, "ult_whoosh_depart", 0},
-            {UltimatePhase.HIT1, "ult_hit_light", 1}, {44, "ult_sonic_boom", 1}, {UltimatePhase.HIT2, "ult_impact_huge", 2},
-            {UltimatePhase.LAUNCH_T, "ult_release_whoosh", 1}, {UltimatePhase.LAUNCH_T, "ult_launch_wind", 1},
-            {UltimatePhase.AIR_BLINK, "ult_blink", 1}, {UltimatePhase.HIT3, "ult_sonic_boom", 1},
-            {UltimatePhase.SLAM_T + 4, "ult_thunder_tail", 1}};
 
     private UltimateManager() {}
 
@@ -306,23 +295,6 @@ public final class UltimateManager {
         }
         if (t >= UltimatePhase.TARGET_FREE && s.stasis) endStasis(s, target); // kalkti
 
-        // konumlu sesler
-        for (int i = 0; i < SOUNDS.length; i++) {
-            if ((s.soundMask & (1 << i)) != 0 || t < (Integer) SOUNDS[i][0]) continue;
-            s.soundMask |= 1 << i;
-            SoundEvent ev = FlashSounds.ult((String) SOUNDS[i][1]);
-            int where = (Integer) SOUNDS[i][2];
-            Vec3 at = where == 0 ? caster.position() : where == 1 ? (target != null ? target.position() : s.lastTargetPos)
-                    : s.arena.toWorld(0D, 1.35D, s.arena.d + s.push - 0.25D);
-            if (ev != null && at != null) level.playSound(null, at.x, at.y, at.z, ev, SoundSource.PLAYERS, 1.6F, 1.0F);
-        }
-
-        if (s.debrisAt >= 0 && gt >= s.debrisAt) {
-            s.debrisAt = -1;
-            SoundEvent ev = FlashSounds.ult("ult_debris");
-            if (ev != null) level.playSound(null, s.debrisPos.x, s.debrisPos.y, s.debrisPos.z, ev, SoundSource.PLAYERS, 1.2F, 1F);
-        }
-
         if (t >= UltimatePhase.DURATION) finish(level, caster, s, 1.0D);
     }
 
@@ -336,10 +308,6 @@ public final class UltimateManager {
     private static void crash(ServerLevel level, ServerPlayer caster, UltimateSession s, LivingEntity target, boolean slam) {
         s.crashed = true;
         Vec3 p = target.position().add(0, target.getBbHeight() * 0.5D, 0);
-        SoundEvent ev = FlashSounds.ult("ult_crash");
-        if (ev != null) level.playSound(null, p.x, p.y, p.z, ev, SoundSource.PLAYERS, slam ? 1.1F : 1.6F, 0.9F);
-        s.debrisAt = level.getGameTime() + 3;
-        s.debrisPos = p;
         BlockPos ahead = BlockPos.containing(p.x + s.arena.fx * (target.getBbWidth() * 0.5D + 0.4D), p.y,
                 p.z + s.arena.fz * (target.getBbWidth() * 0.5D + 0.4D));
         if (slam) ahead = target.blockPosition().below();

@@ -43,21 +43,21 @@ public final class FlashSounds {
 
     private FlashSounds() {}
 
-    /**
-     * Ultimate sesleri (id -> kayit). sounds.json'da gecici olarak vanilla ses dosyalarina esleniyorlar; kendi
-     * seslerini koyunca ilgili girdiyi "flashmod:ult/<id>" yap.
-     */
-    public static final java.util.Map<String, RegistryObject<SoundEvent>> ULT = new java.util.LinkedHashMap<>();
-    public static final String[] ULT_IDS = {"ult_activate", "ult_blink", "ult_charge_loop", "ult_roar_crackle", "ult_charge_peak", "ult_whoosh_depart", "ult_hit_light", "ult_sonic_boom", "ult_flash_swell", "ult_void_ambience", "ult_heartbeat", "ult_pushoff", "ult_footsteps_ramp", "ult_speed_ramp", "ult_boom", "ult_high_wind", "ult_pass_under", "ult_ocean_tear", "ult_spray_wash", "ult_ascend", "ult_space_hum", "ult_orbit_streak", "ult_return_swell", "ult_tunnel_rush", "ult_land_heavy", "ult_eyes_ignite", "ult_charge_final", "ult_inhale_crack", "ult_impact_huge", "ult_impact_sub", "ult_hitstop_ring", "ult_release_whoosh", "ult_launch_wind", "ult_crash", "ult_debris", "ult_thunder_tail", "ult_resolve", "ult_orbit_world"};
-
-    static {
-        for (String id : ULT_IDS) ULT.put(id, reg(id));
-    }
-
-    public static SoundEvent ult(String id) {
-        RegistryObject<SoundEvent> r = ULT.get(id);
-        return r == null ? null : r.get();
-    }
+    // ---------------------------------------------------------------- ultimate
+    // Dosyalar: assets/flashmod/sounds/ult/<ad>.ogg (sounds.json). Zamanlama ve ses seviyeleri UltSounds'ta; agir
+    // vuruslar (aparkat, hava yumrugu, yere carpma) Blitz finalindeki vanilla katmanlari kullanir, kosu loop'u TRAIL_LOOP.
+    /** Aktivasyon: simsek patlamasi ve kilitlenme (~1 sn). */
+    public static final RegistryObject<SoundEvent> ULT_ACTIVATE = reg("ult_activate");
+    /** Sarj: tek seferlik yukselen ses, bas noktasi kosuya cikista (~1.2 sn). */
+    public static final RegistryObject<SoundEvent> ULT_CHARGE = reg("ult_charge");
+    /** Bastaki carpma (ilk vurus); inisde kalin perdeden tekrar. */
+    public static final RegistryObject<SoundEvent> ULT_HIT = reg("ult_hit");
+    /** Run out: vurustan sonra kosup cikis ve okyanusta ufka firlayis (~1-1.5 sn). */
+    public static final RegistryObject<SoundEvent> ULT_RUN_OUT = reg("ult_run_out");
+    /** Havada belirme (isinlanma citirtisi, kisa). */
+    public static final RegistryObject<SoundEvent> ULT_BLINK = reg("ult_blink");
+    /** Yavas cekim: hedef havada asili kalirken (~1 sn, uzayan/derinlesen ugultu). */
+    public static final RegistryObject<SoundEvent> ULT_SLOWMO = reg("ult_slowmo");
 
     private static RegistryObject<SoundEvent> reg(String name) {
         return SOUNDS.register(name, () -> SoundEvent.createVariableRangeEvent(new ResourceLocation(FlashMod.MODID, name)));

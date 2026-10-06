@@ -20,7 +20,9 @@ public final class UltOceanScene implements UltScene.Scene {
     private static final float T0 = UltimatePhase.OCEAN.start, T1 = UltimatePhase.OCEAN.end;
     /** Gunes: ekranin sag ust tarafinda (kosu yonu +Z, sol = +X), ufka yakin. */
     private static final Vec3 SUN = new Vec3(-0.42, 0.10, 1.0).normalize();
-    private static final float RUN = 2.4F, ACCEL_T = 160F;
+    private static final float RUN = 2.4F;
+    /** Kosucu bir anda hizlanip ufka firlar (kamera durur, kosucu su ustunde uzaklasir; run out sesi). */
+    public static final float DASH_T = 160F;
     private static final double FAR = 3500.0;
     private static final int DEEP = 0x07202F, SHALLOW = 0x134A5E, HORIZON = 0xF2C9A0, HAZE = 0xC89A86;
     /** Ufka yakin suyun rengi (pus): gok kubbenin ufuk alti da bu renkle baslar. */
@@ -31,10 +33,10 @@ public final class UltOceanScene implements UltScene.Scene {
     // ---------------------------------------------------------------- kosucu
 
     static double runnerZ(float t) {
-        if (t <= ACCEL_T) return RUN * (t - T0);
-        double base = RUN * (ACCEL_T - T0), u = t - ACCEL_T;
-        // ACCEL_T'den sonra ivmelenme: v = RUN + 0.35 u^2 (blok/tick)
-        return base + RUN * u + 0.35 * u * u * u / 3.0;
+        if (t <= DASH_T) return RUN * (t - T0);
+        double base = RUN * (DASH_T - T0), u = t - DASH_T;
+        // DASH_T'den sonra ivmelenme: v = RUN + 0.14 u^2 (blok/tick); sahne sonuna kadar ufukta parlayan iz olarak gorunur
+        return base + RUN * u + 0.14 * u * u * u / 3.0;
     }
 
     /** Kosucu hep su ustunde kalir (ufka dogru yukselmez). */

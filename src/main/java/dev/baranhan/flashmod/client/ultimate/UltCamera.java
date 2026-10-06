@@ -100,13 +100,15 @@ public final class UltCamera {
                         kf(106, -7.20, 1.60, 2.80, 0.0, 1.00, 5.00, 66, 0, Ease.IN_OUT_SINE, false, 0),
                         kf(108, -2.20, 1.25, -3.20, 0.0, 1.00, 10.0, 60, 0, L, true, 0),
                         kf(122, -2.20, 1.25, -3.20, 0.0, 1.00, 60.0, 72, 0, L, false, 14)}),
-                // OCEAN: kosucunun ~10 blok arkasindan, V su perdelerinin icinden sabit mesafede takip (sona kadar;
-                // kosucu ekranda yer degistirmez, ufka kayip tirmanmis gibi gorunmez). Egim (roll) ve pitch
-                // director'da kompozisyondan: ufuk sol alttan sag uste, su alani ~%40.
+                // OCEAN: kosucunun ~10 blok arkasindan, V su perdelerinin icinden sabit mesafede takip. DASH_T'de kamera
+                // yumusakca durur (gecikme 0 -> 1 egimli artar), kosucu bir anda hizlanip ufka firlar. Egim (roll) ve
+                // pitch director'da kompozisyondan: ufuk sol alttan sag uste, su alani ~%40.
                 new Track(S, new Key[]{
                         kf(122, -1.10, 2.70, -10.0, 5.6, 1.00, 9.0, 70, 0, L, true, 0),
                         kf(150, -1.20, 2.75, -10.3, 5.5, 1.00, 9.2, 70, 0, L, false, 0),
-                        kf(182, -1.30, 2.80, -10.6, 5.4, 1.00, 9.4, 72, 0, L, false, 0)}),
+                        kf(UltOceanScene.DASH_T, -1.25, 2.78, -10.4, 5.45, 1.00, 9.3, 70, 0, L, false, 0),
+                        kf(UltOceanScene.DASH_T + 4, -1.25, 2.78, -10.4, 5.45, 1.00, 9.3, 71, 0, L, false, 1.5F),
+                        kf(182, -1.25, 2.78, -10.4, 5.45, 1.00, 9.3, 72, 0, L, false, 182 - UltOceanScene.DASH_T - 2.5F)}),
                 // ORBIT: Dunya etrafinda yavas kamera yorungesi, sonda isigin dalisina yaklasma
                 new Track(S, new Key[]{
                         k(182, 70, 30, -195, 30, 0, 0, 45, 0, L, true),
