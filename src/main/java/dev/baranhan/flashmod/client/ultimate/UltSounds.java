@@ -22,7 +22,7 @@ import java.util.Map;
 /**
  * Ultimate sesleri, tamamen istemcide ve goruntuyle AYNI zamandan (UltState.t) calinir: her istemci tick'inde son
  * tick'ten simdikine kadar gecilen olaylar baslatilir (atlama olmaz). Tam sinematikte sesler konumsuz (UI), izleyicilerde
- * olayin dunyadaki yerinde. Kayitli 7 ses (FlashSounds.ULT_*), kosu loop'u (TRAIL_LOOP) ve agir vuruslarda Blitz
+ * olayin dunyadaki yerinde. Kayitli 8 ses (FlashSounds.ULT_*), kosu loop'u (TRAIL_LOOP) ve ruzgar (ULT_WIND) ve agir vuruslarda Blitz
  * finalindeki vanilla katmanlar.
  */
 public final class UltSounds {
@@ -30,12 +30,15 @@ public final class UltSounds {
     /** Izleyici icin olayin yeri: caster (yerde/proxy), hedef (betik), havadaki caster; NONE: sadece sinematikte. */
     private static final int AT_CASTER = 0, AT_TARGET = 1, AT_AIR = 2, NONE = -1;
 
+    /** 2. sahnede (VOID) kameranin durup kosucunun ileri uzaklastigi an (UltCamera VOID tablosu, 108). */
+    private static final float VOID_RUN_OUT = 108F;
     /** {t, ses, ses seviyesi, perde, yer}. Zamanlar UltimatePhase cizelgesine gore. */
     private static final float[][] EVENTS = {
             {0, ACTIVATE, 1.0F, 1.0F, AT_CASTER},
             {UltimatePhase.WINDUP.start, CHARGE, 1.0F, 1.0F, AT_CASTER},
             {UltimatePhase.HIT1, HIT, 1.0F, 1.0F, AT_TARGET},                 // bastaki carpma
             {UltimatePhase.HIT1 + 1, RUN_OUT, 1.0F, 1.0F, AT_CASTER},         // kosup cikis
+            {VOID_RUN_OUT, RUN_OUT, 0.9F, 1.0F, NONE},                        // 2. sahne: kamera durur, kosucu ileri uzaklasir
             {UltOceanScene.DASH_T, RUN_OUT, 1.0F, 0.92F, NONE},               // okyanusta ufka firlayis
             {274, FOCUS, 1.0F, 1.0F, NONE},                                  // tunel: comelme, kamera yuze yaklasir
             {UltimatePhase.HIT2, HEAVY, 1.0F, 1.0F, AT_TARGET},               // aparkat
@@ -45,7 +48,7 @@ public final class UltSounds {
             {UltimatePhase.SLAM_T, HEAVY, 1.3F, 0.82F, AT_TARGET},            // yere carpma patlamasi
             {UltimatePhase.CASTER_LAND, HIT, 0.7F, 0.72F, AT_AIR}};           // Flash'in inisi
 
-    /** Kosu loop'u (TRAIL_LOOP): kosup cikistan tunelden donuse kadar. */
+    /** Kosu loop'u (TRAIL_LOOP) ve arka plandaki ruzgar: kosup cikistan tunelden donuse kadar. */
     private static final float LOOP_START = UltimatePhase.HIT1 + 1, LOOP_END = UltimatePhase.HIT2;
 
     private static final Map<UltState, List<SoundInstance>> PLAYING = new HashMap<>();
@@ -59,9 +62,12 @@ public final class UltSounds {
             if (prev < e[0] && t >= e[0]) fire(mc, s, (int) e[1], e[2], e[3], (int) e[4]);
         }
         if (prev < LOOP_START && t >= LOOP_START && t < LOOP_END) {
-            SoundInstance loop = new TrailLoop(s);
-            mc.getSoundManager().play(loop);
-            PLAYING.computeIfAbsent(s, k -> new ArrayList<>()).add(loop);
+            for (boolean wind : new boolean[]{false, true}) {
+                if (wind && !s.full) continue; // ruzgar kameranin sesi: yalnizca sinematikte
+                SoundInstance loop = new RunLoop(s, wind);
+                mc.getSoundManager().play(loop);
+                PLAYING.computeIfAbsent(s, k -> new ArrayList<>()).add(loop);
+            }
         }
     }
 
@@ -123,19 +129,25 @@ public final class UltSounds {
     }
 
     /**
-     * Kosu loop'u (Blitz'deki iz citirtisi, TRAIL_LOOP). Sinematikte konumsuz; ses seviyesi ve perde sahneye gore
-     * (kosu hizlandikca tizlesir, yorungede uzaktan, okyanusta ufka firlayinca uzaklasir). Izleyicide arenanin
-     * ustunde donen isigin yerinde. Kenarlarda yumusak acilip kapanir.
+     * Kosu sirasinda iki loop. TRAIL_LOOP (Blitz'deki iz citirtisi): sinematikte konumsuz ama ses seviyesi kosucunun
+     * kameraya uzakligina gore (yakinken tam, uzaklastikca zayiflar; yorungede sabit uzak, tunelde yakin), perde kosu
+     * hizlandikca tizlesir. Izleyicide arenanin ustunde donen isigin yerinde. ULT_WIND: arka planda dusuk ruzgar
+     * (kameranin sesi, uzakliktan bagimsiz). Ses hic 0'a inmez (motor sessiz sesi kesebilir): taban ~0.03.
      */
-    private static final class TrailLoop extends AbstractTickableSoundInstance {
+    private static final class RunLoop extends AbstractTickableSoundInstance {
+        private static final float FLOOR = 0.03F;
         private final UltState s;
+        private final boolean wind;
+        private float near = 1F;
 
-        TrailLoop(UltState s) {
-            super(FlashSounds.TRAIL_LOOP.get(), SoundSource.PLAYERS, SoundInstance.createUnseededRandom());
+        RunLoop(UltState s, boolean wind) {
+            super(wind ? FlashSounds.ULT_WIND.get() : FlashSounds.TRAIL_LOOP.get(), SoundSource.PLAYERS,
+                    SoundInstance.createUnseededRandom());
             this.s = s;
+            this.wind = wind;
             this.looping = true;
             this.delay = 0;
-            this.volume = 0.01F;
+            this.volume = FLOOR;
             if (s.full) {
                 this.relative = true;
                 this.attenuation = Attenuation.NONE;
@@ -156,20 +168,49 @@ public final class UltSounds {
             float t = s.t(0F);
             if (t > LOOP_END + 3F || t < LOOP_START - 1F || s.abortAt >= 0) { stop(); return; }
             float edge = Mth.clamp(Math.min(t - LOOP_START, LOOP_END - t) / 3F, 0F, 1F);
-            this.volume = Math.max(0.001F, level(t) * edge);
-            this.pitch = pitch(t);
+            float want;
+            if (wind) {
+                want = windLevel(t);
+            } else {
+                near += (proximity(t) - near) * 0.35F; // yumusak: kesmelerde ani sicrama olmasin
+                want = (s.full ? trailLevel(t) : 0.8F) * near;
+            }
+            this.volume = Math.max(FLOOR, want * edge);
+            this.pitch = wind ? 0.9F + 0.15F * Mth.clamp((t - UltimatePhase.VOID.start) / 60F, 0F, 1F) : pitch(t);
         }
 
-        private float level(float t) {
-            if (!s.full) return 0.8F;
-            if (t < UltimatePhase.VOID.start) return 0.7F;                    // arenadan kosup cikis
-            if (t < UltimatePhase.OCEAN.start) return 0.85F;
-            if (t < UltOceanScene.DASH_T) return 1.0F;
-            if (t < UltimatePhase.ORBIT.start) {                               // ufka firlarken uzaklasir
-                return Mth.lerp((t - UltOceanScene.DASH_T) / (UltimatePhase.ORBIT.start - UltOceanScene.DASH_T), 1.0F, 0.35F);
+        /** Kosucunun kameraya uzakligina gore 0..1 (3 blokta tam, ~11 blokta yari, 20 blokta ~0.15). */
+        private float proximity(float t) {
+            if (!s.full) return 1F;
+            UltimatePhase ph = UltimatePhase.at(t);
+            double d;
+            if (ph == UltimatePhase.VOID || ph == UltimatePhase.OCEAN) {
+                d = s.sceneCam.distanceTo(UltScene.runner(t, t));
+            } else if (t < UltimatePhase.SCENE_START) {
+                Player p = s.caster();
+                if (p == null) return 1F;
+                d = s.lastCamPos.distanceTo(UltRender.casterWorld(s, p, t, 0F, new float[1]).add(0, 1.0, 0));
+            } else {
+                return 1F; // yorunge ve tunel: seviye trailLevel'da
             }
+            double x = Math.max(0.0, d - 3.0);
+            return (float) (1.0 / (1.0 + x * x / 60.0));
+        }
+
+        private static float trailLevel(float t) {
+            if (t < UltimatePhase.VOID.start) return 0.8F;                    // arenadan kosup cikis
+            if (t < UltimatePhase.OCEAN.start) return 0.9F;
+            if (t < UltimatePhase.ORBIT.start) return 1.0F;
             if (t < UltimatePhase.TUNNEL.start) return 0.3F;                   // yorunge: uzaktan
             return 1.0F;                                                       // tunel
+        }
+
+        private static float windLevel(float t) {
+            if (t < UltimatePhase.VOID.start) return 0.2F;
+            if (t < UltimatePhase.OCEAN.start) return 0.3F;
+            if (t < UltimatePhase.ORBIT.start) return 0.38F;                   // acik deniz
+            if (t < UltimatePhase.TUNNEL.start) return 0.12F;                  // uzay: neredeyse sessiz
+            return 0.35F;
         }
 
         private static float pitch(float t) {

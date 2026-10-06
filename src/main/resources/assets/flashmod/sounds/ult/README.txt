@@ -4,7 +4,9 @@ mono dosyalar izleyicilerde konumlu calar; sinematikte zaten konumsuz calinir). 
   activate.ogg  ~1 sn    t=0     aktivasyon: simsek patlamasi, kilitlenme
   charge.ogg    ~1.2 sn  t=6     sarj: yukselen ses, sonu kosuya cikisa (t=30) denk gelsin
   hit.ogg       kisa     t=33    bastaki carpma (ilk vurus); t=332 Flash'in inisinde kalin perdeden tekrar
-  run_out.ogg   ~1-1.5 sn t=34   vurustan sonra kosup cikis; t=160 okyanusta ufka firlayista tekrar
+  run_out.ogg   ~1-1.5 sn t=34   vurustan sonra kosup cikis; t=108 2. sahnede ileri uzaklasirken ve t=160
+                                 okyanusta ufka firlayista tekrar
+  wind.ogg      LOOP     t=34-290 kosarken arka planda dusuk ruzgar (kesintisiz donen loop olmali)
   focus.ogg     ~1 sn    t=274   son sahneden once tunelde comelme, kamera yuze yaklasir (eskiden ors sesi)
   blink.ogg     kisa     t=310   Flash'in havada belirmesi
   slowmo.ogg    ~1 sn    t=296   hedef havada asili kalirken yavas cekim

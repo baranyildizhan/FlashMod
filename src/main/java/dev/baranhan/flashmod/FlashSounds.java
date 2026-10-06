@@ -58,6 +58,8 @@ public final class FlashSounds {
     public static final RegistryObject<SoundEvent> ULT_BLINK = reg("ult_blink");
     /** Son sahneden once tunelde Flash comelip kamera yuzune yaklasirken (eskiden ors sesi; ~1 sn, agir vurgu). */
     public static final RegistryObject<SoundEvent> ULT_FOCUS = reg("ult_focus");
+    /** Kosarken arka planda dusuk ruzgar (loop; kesintisiz donecek sekilde kesilmis olmali). */
+    public static final RegistryObject<SoundEvent> ULT_WIND = reg("ult_wind");
     /** Yavas cekim: hedef havada asili kalirken (~1 sn, uzayan/derinlesen ugultu). */
     public static final RegistryObject<SoundEvent> ULT_SLOWMO = reg("ult_slowmo");
 
