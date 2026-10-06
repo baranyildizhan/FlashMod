@@ -35,7 +35,8 @@ public final class UltDirector {
     public static boolean freeCam, showInfo;
     private static float roll, fov = 70F;
     private static final float[] SHAKE_EVENTS = {22, 0.2F, UltimatePhase.HIT1, 0.5F, 53, 0.3F, 86, 0.25F, 112, 0.55F,
-            126, 0.4F, 230, 0.2F, 272, 0.35F, UltimatePhase.HIT2, 1.0F, UltimatePhase.LAUNCH_T, 0.6F};
+            126, 0.4F, 230, 0.2F, 272, 0.35F, UltimatePhase.HIT2, 1.0F, UltimatePhase.LAUNCH_T, 0.4F,
+            UltimatePhase.AIR_BLINK, 0.25F, UltimatePhase.HIT3, 0.8F, UltimatePhase.SLAM_T, 1.0F, UltimatePhase.CASTER_LAND, 0.3F};
     /** Okyanus kompozisyonu: ufuk ekranin sol kenarinda alttan %6, sag kenarinda alttan %78 yukseklikte (su ~%42). */
     private static final float OCEAN_LEFT = 0.06F, OCEAN_RIGHT = 0.78F;
 
@@ -87,10 +88,8 @@ public final class UltDirector {
         if (m.type == UltimateEventPacket.ABORT) {
             s.abortAt = mc.level.getGameTime();
             UltSounds.stopAll(s);
-        } else {
-            s.crashes.add(new UltState.Crash(new Vec3(m.x, m.y, m.z), m.nx, m.ny, m.nz, m.type == UltimateEventPacket.SLAM,
-                    mc.level.getGameTime()));
-            if (s.full && mc.player != null) s.trauma = Math.min(1F, s.trauma + (mc.player.distanceToSqr(m.x, m.y, m.z) > 400 ? 0.3F : 0.6F));
+        } else if (!s.full && mc.player != null) { // izleyiciler: yakindaysa carpma sarsintisi (tam sinematikte tabloda)
+            s.trauma = Math.min(1F, s.trauma + (mc.player.distanceToSqr(m.x, m.y, m.z) > 400 ? 0.3F : 0.6F));
         }
     }
 
@@ -341,6 +340,10 @@ public final class UltDirector {
     }
 
     public static Vec3 targetLive(UltState s, float pt) {
+        float tt = s.t(pt);
+        if (dev.baranhan.flashmod.ultimate.UltimateScript.targetScripted(tt) && tt >= UltimatePhase.LAUNCH_T) {
+            return s.targetScripted(tt).add(0, s.targetH * 0.5D, 0); // betikteki yer (onizlemede de dogru)
+        }
         LivingEntity t = s.target();
         if (t != null && t.isAlive()) {
             s.lastTargetPos = t.getPosition(pt);
@@ -370,13 +373,13 @@ public final class UltDirector {
 
     // ---------------------------------------------------------------- firlatilan hedefin izi
 
-    /** LAUNCH boyunca hedefin her tick'teki konumu bizim iz sistemimize node olarak eklenir (UltWorldFx cizer). */
+    /** Havaya kalkis ve cakilma boyunca hedefin betikteki konumu bizim iz sistemimize node olarak eklenir (UltWorldFx cizer). */
     private static void recordTargetTrail(UltState s, float t, long now) {
         dev.baranhan.flashmod.client.ClientSpeedsters.Entry e = s.targetTrail;
         LivingEntity tg = s.target();
-        boolean on = s.abortAt < 0 && t >= UltimatePhase.LAUNCH_T && t < UltimatePhase.CRASH_END + 4 && tg != null && tg.isAlive();
+        boolean on = s.abortAt < 0 && t >= UltimatePhase.LAUNCH_T && t <= UltimatePhase.SLAM_T && (tg != null || s.preview);
         if (on) {
-            Vec3 p = tg.position();
+            Vec3 p = s.targetScripted(t);
             double dx = 0, dz = 0, dy = 0;
             if (e.hasLast) { dx = p.x - e.lastX; dy = p.y - e.lastY; dz = p.z - e.lastZ; }
             double dist = Math.sqrt(dx * dx + dy * dy + dz * dz), h = Math.sqrt(dx * dx + dz * dz);
@@ -388,7 +391,7 @@ public final class UltDirector {
             e.speed = Math.max(1F, (float) dist);
             if (dist > 0.05) {
                 e.nodes.addFirst(new dev.baranhan.flashmod.client.ClientSpeedsters.TrailNode(p.x, p.y, p.z, -e.dirZ, 0F, e.dirX,
-                        0F, 1F, 0F, e.odometer, 1F, now, tg.getBbHeight() / 1.8F));
+                        0F, 1F, 0F, e.odometer, 1F, now, s.targetH / 1.8F));
             }
         }
         e.trailLifeOverride = 14;

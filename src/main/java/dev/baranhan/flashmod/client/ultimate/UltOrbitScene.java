@@ -15,7 +15,7 @@ import org.joml.Matrix4f;
 /**
  * ORBIT: uzaydan Dunya turu. NASA Blue Marble dokulu Dunya (gunduz + gece sehir isiklari, yumusak terminator),
  * ayri donen bulut katmani, atmosfer halesi, yildizlar. Flash yuzeye yakin buyuk bir cemberde gezegeni tam tur
- * (1.25 tur) kosar: arkasinda bizim iz sistemimizle cizilen dev simsek izi (iz olcegi 3x), gezegenin arkasina
+ * (1.25 tur) kosar: arkasinda bizim iz sistemimizle cizilen simsek izi (iz olcegi 2x), gezegenin arkasina
  * gecince derinlikle gizlenir, diger yandan geri cikar. Sonda yuzeye dogru dalar (beyaz flas -> tunel).
  */
 public final class UltOrbitScene implements UltScene.Scene {
@@ -24,7 +24,7 @@ public final class UltOrbitScene implements UltScene.Scene {
     private static final float T0 = UltimatePhase.ORBIT.start, T1 = UltimatePhase.ORBIT.end;
     /** Tur suresi (tick) ve baslangic acisi: bas sag kenardan cikip once kameranin onunden gecer. */
     private static final double LAP = 50.0, THETA0 = Math.toRadians(-34.0);
-    private static final float DIVE_T = 244F, TRAIL_SCALE = 6F;
+    private static final float DIVE_T = 244F, TRAIL_SCALE = 2F;
     private static final Vec3 SUN = new Vec3(-0.85, 0.30, -0.42).normalize();
     private static final Vec3 N = new Vec3(0.15, 1, 0.1).normalize();
     private static final Vec3 A, B;
@@ -202,14 +202,14 @@ public final class UltOrbitScene implements UltScene.Scene {
         MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
         VertexConsumer vc = buffers.getBuffer(FlashRenderTypes.ADDITIVE_GLOW);
         float hx = (float) h.x, hy = (float) h.y, hz = (float) h.z;
-        float fl = 9F * swell;
+        float fl = 3F * swell;
         GlowDraw.segment(vc, c.view, hx - c.right[0] * fl, hy - c.right[1] * fl, hz - c.right[2] * fl,
-                hx, hy, hz, 0.3F * swell, GlowDraw.cr(warm), GlowDraw.cg(warm), GlowDraw.cb(warm), 0F, 0.8F, false);
+                hx, hy, hz, 0.1F * swell, GlowDraw.cr(warm), GlowDraw.cg(warm), GlowDraw.cb(warm), 0F, 0.8F, false);
         GlowDraw.segment(vc, c.view, hx, hy, hz, hx + c.right[0] * fl, hy + c.right[1] * fl, hz + c.right[2] * fl,
-                0.3F * swell, GlowDraw.cr(warm), GlowDraw.cg(warm), GlowDraw.cb(warm), 0.8F, 0F, false);
-        GlowDraw.orb(vc, c.view, hx, hy, hz, 6F * swell, GlowDraw.cr(warm), GlowDraw.cg(warm), GlowDraw.cb(warm), 0.35F);
-        GlowDraw.orb(vc, c.view, hx, hy, hz, 2.6F * swell, GlowDraw.cr(warm), GlowDraw.cg(warm), GlowDraw.cb(warm), 0.75F);
-        GlowDraw.orb(vc, c.view, hx, hy, hz, 1.0F * swell, 1F, 1F, 1F, 1F);
+                0.1F * swell, GlowDraw.cr(warm), GlowDraw.cg(warm), GlowDraw.cb(warm), 0.8F, 0F, false);
+        GlowDraw.orb(vc, c.view, hx, hy, hz, 2F * swell, GlowDraw.cr(warm), GlowDraw.cg(warm), GlowDraw.cb(warm), 0.35F);
+        GlowDraw.orb(vc, c.view, hx, hy, hz, 0.87F * swell, GlowDraw.cr(warm), GlowDraw.cg(warm), GlowDraw.cb(warm), 0.75F);
+        GlowDraw.orb(vc, c.view, hx, hy, hz, 0.33F * swell, 1F, 1F, 1F, 1F);
         buffers.endBatch(FlashRenderTypes.ADDITIVE_GLOW);
     }
 

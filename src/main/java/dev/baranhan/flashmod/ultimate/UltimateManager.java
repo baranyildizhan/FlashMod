@@ -14,7 +14,6 @@ import net.minecraft.core.particles.BlockParticleOption;
 import net.minecraft.core.particles.ParticleTypes;
 import net.minecraft.nbt.CompoundTag;
 import net.minecraft.network.chat.Component;
-import net.minecraft.network.protocol.game.ClientboundSetEntityMotionPacket;
 import net.minecraft.server.MinecraftServer;
 import net.minecraft.server.level.ServerLevel;
 import net.minecraft.server.level.ServerPlayer;
@@ -23,7 +22,6 @@ import net.minecraft.sounds.SoundSource;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.Mob;
-import net.minecraft.world.entity.ai.attributes.Attributes;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.level.GameRules;
 import net.minecraft.world.level.block.state.BlockState;
@@ -38,7 +36,8 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Sunucu otoritesi: aktivasyon, hedef, blink, stasis, hasar, firlatma, carpma, iptal, cooldown.
+ * Sunucu otoritesi: aktivasyon, hedef, blink, stasis (UltimateScript betigiyle itme/havaya kalkis/cakilma), hasar,
+ * yere carpma, iptal, cooldown.
  * Zaman startGameTime'dan hesaplanir; olaylar "yapildi mi" bayraklariyla >= ile tetiklenir (lag'e dayanikli).
  */
 public final class UltimateManager {
@@ -51,7 +50,8 @@ public final class UltimateManager {
             {UltimatePhase.BLINK, "ult_blink", 0}, {16, "ult_roar_crackle", 0}, {UltimatePhase.HIDE_BODY, "ult_whoosh_depart", 0},
             {UltimatePhase.HIT1, "ult_hit_light", 1}, {44, "ult_sonic_boom", 1}, {UltimatePhase.HIT2, "ult_impact_huge", 2},
             {UltimatePhase.LAUNCH_T, "ult_release_whoosh", 1}, {UltimatePhase.LAUNCH_T, "ult_launch_wind", 1},
-            {UltimatePhase.LAUNCH_T + 18, "ult_thunder_tail", 1}};
+            {UltimatePhase.AIR_BLINK, "ult_blink", 1}, {UltimatePhase.HIT3, "ult_sonic_boom", 1},
+            {UltimatePhase.SLAM_T + 4, "ult_thunder_tail", 1}};
 
     private UltimateManager() {}
 
@@ -242,6 +242,15 @@ public final class UltimateManager {
             s.lockPos = stand != null ? stand : s.lockPos;
             teleport(caster, s.lockPos, s.lockYaw);
         }
+        if (t >= UltimatePhase.CASTER_LAND && !s.landed) { // havadaki yumruktan sonra hedefin arkasina iner
+            s.landed = true;
+            Vec3 l = s.freezePos.add(UltimateScript.casterOffset(s.arena.fx, s.arena.fz, s.push, UltimatePhase.CASTER_LAND));
+            Vec3 stand = findStand(caster, l, false);
+            if (stand != null) {
+                s.lockPos = stand;
+                teleport(caster, s.lockPos, s.arena.forwardYaw() + 180F);
+            }
+        }
         if (s.blinked) {
             caster.setDeltaMovement(Vec3.ZERO);
             caster.fallDistance = 0F;
@@ -251,9 +260,9 @@ public final class UltimateManager {
         // stasis
         if (s.stasis && target != null) {
             target.setDeltaMovement(Vec3.ZERO);
-            // ilk vurus: hedef HIT1 -> PUSH_END arasi ileri kayar (istemci ayni egriyle yumusak cizer)
-            double k = s.push * UltimatePhase.pushEase(t);
-            Vec3 want = s.freezePos.add(s.arena.fx * k, 0, s.arena.fz * k);
+            // betik: ilk vurusta ileri kayma, ikinci vurustan sonra havaya kalkis, asili kalma, cakilma
+            // (istemci ayni egrileri yumusak cizer)
+            Vec3 want = s.freezePos.add(UltimateScript.targetOffset(s.arena.fx, s.arena.fz, s.push, t));
             if (target.position().distanceToSqr(want) > 0.05D * 0.05D) {
                 if (target instanceof ServerPlayer sp) sp.connection.teleport(want.x, want.y, want.z, sp.getYRot(), sp.getXRot());
                 else target.setPos(want.x, want.y, want.z);
@@ -281,10 +290,19 @@ public final class UltimateManager {
                 target.hurt(UltimateDamage.source(level, caster), UltimateDamage.hit2(target));
             }
         }
-        if (t >= UltimatePhase.LAUNCH_T && !s.launched) {
+        if (t >= UltimatePhase.HIT3 && !s.hit3Done) { // havadaki yumruk
+            s.hit3Done = true;
+            if (target != null) {
+                target.invulnerableTime = 0;
+                target.hurt(UltimateDamage.source(level, caster), FlashServerConfig.ULT_HIT3.get().floatValue());
+            }
+        }
+        if (t >= UltimatePhase.SLAM_T && !s.launched) { // yere carpma: patlama, stasis biter
             s.launched = true;
-            if (target != null) endStasis(s, target);
-            if (target != null && target.isAlive()) launch(s, target);
+            if (target != null) {
+                endStasis(s, target);
+                if (target.isAlive()) crash(level, caster, s, target, true);
+            }
         }
 
         // konumlu sesler
@@ -298,14 +316,6 @@ public final class UltimateManager {
             if (ev != null && at != null) level.playSound(null, at.x, at.y, at.z, ev, SoundSource.PLAYERS, 1.6F, 1.0F);
         }
 
-        // carpma
-        if (s.launched && !s.crashed && t <= UltimatePhase.CRASH_END && target != null) {
-            Vec3 v = target.getDeltaMovement();
-            if (target.horizontalCollision && s.prevH > 0.8D) crash(level, caster, s, target, false);
-            else if (target.onGround() && s.prevVy < -0.6D) crash(level, caster, s, target, true);
-            s.prevH = Math.sqrt(v.x * v.x + v.z * v.z);
-            s.prevVy = v.y;
-        }
         if (s.debrisAt >= 0 && gt >= s.debrisAt) {
             s.debrisAt = -1;
             SoundEvent ev = FlashSounds.ult("ult_debris");
@@ -320,20 +330,6 @@ public final class UltimateManager {
         p.setDeltaMovement(Vec3.ZERO);
         p.setOnGround(true);
         p.fallDistance = 0F;
-    }
-
-    private static void launch(UltimateSession s, LivingEntity target) {
-        double kb = target.getAttributeValue(Attributes.KNOCKBACK_RESISTANCE);
-        double scale = Math.max(0.2D, 1.0D / (1.0D + kb * 0.8D));
-        if (target.isInWater()) scale *= 0.5D;
-        Vec3 v = new Vec3(s.arena.fx * FlashServerConfig.ULT_LAUNCH_H.get() * scale, FlashServerConfig.ULT_LAUNCH_V.get(),
-                s.arena.fz * FlashServerConfig.ULT_LAUNCH_H.get() * scale);
-        target.setDeltaMovement(v);
-        target.hurtMarked = true;
-        target.hasImpulse = true;
-        if (target instanceof ServerPlayer sp) sp.connection.send(new ClientboundSetEntityMotionPacket(target));
-        s.prevH = Math.sqrt(v.x * v.x + v.z * v.z);
-        s.prevVy = v.y;
     }
 
     private static void crash(ServerLevel level, ServerPlayer caster, UltimateSession s, LivingEntity target, boolean slam) {
@@ -351,7 +347,7 @@ public final class UltimateManager {
         if (!st.isAir()) {
             level.sendParticles(new BlockParticleOption(ParticleTypes.BLOCK, st), p.x, p.y, p.z, 40, 0.5D, 0.5D, 0.5D, 0.15D);
         }
-        if (!slam && FlashServerConfig.ULT_CRASH_BREAKS.get() && level.getGameRules().getBoolean(GameRules.RULE_MOBGRIEFING)) {
+        if (FlashServerConfig.ULT_CRASH_BREAKS.get() && level.getGameRules().getBoolean(GameRules.RULE_MOBGRIEFING)) {
             float maxH = FlashServerConfig.ULT_CRASH_HARDNESS.get().floatValue();
             for (BlockPos bp : BlockPos.betweenClosed(ahead.offset(-1, -1, -1), ahead.offset(1, 1, 1))) {
                 BlockState b = level.getBlockState(bp);

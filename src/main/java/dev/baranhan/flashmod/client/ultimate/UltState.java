@@ -9,8 +9,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.List;
 
 /** Istemcideki bir ultimate oturumu (tam sinematik ya da izleyici). */
 public final class UltState {
@@ -50,10 +48,6 @@ public final class UltState {
     public float lastYaw, lastPitch, lastFov = 70F, lastRoll;
     /** SCENE fazinda sahne kamera konumu (sahne uzayi) ve bakisi. */
     public Vec3 sceneCam = Vec3.ZERO;
-
-    public record Crash(Vec3 pos, float nx, float ny, float nz, boolean slam, long gameTime) {}
-
-    public final List<Crash> crashes = new ArrayList<>();
 
     public UltState(UltimateStartPacket m) {
         this.id = m.sessionId;
@@ -113,6 +107,16 @@ public final class UltState {
     /** Ikinci vurusun temas noktasi (dunya): itilmis hedefin gogsu. */
     public Vec3 contact() {
         return arena.toWorld(0D, contactY, arena.d + push - 0.25D);
+    }
+
+    /** Hedefin betikteki dunya konumu (ayaklar): itme, havaya kalkis, asili kalma, cakilma. */
+    public Vec3 targetScripted(float t) {
+        return targetBase.add(dev.baranhan.flashmod.ultimate.UltimateScript.targetOffset(arena.fx, arena.fz, push, t));
+    }
+
+    /** Flash'in havadaki/inisteki dunya konumu (AIR_BLINK'ten itibaren). */
+    public Vec3 casterAir(float t) {
+        return targetBase.add(dev.baranhan.flashmod.ultimate.UltimateScript.casterOffset(arena.fx, arena.fz, push, t));
     }
 
     /** t anindaki temas noktasi (ilk vurusta itme oncesi/sirasi icin). */

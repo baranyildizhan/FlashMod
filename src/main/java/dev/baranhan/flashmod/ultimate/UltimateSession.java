@@ -23,7 +23,7 @@ public final class UltimateSession {
     public final boolean debug;
     public final List<UUID> audience = new ArrayList<>();
 
-    public boolean blinked, hit1Done, returned, hit2Done, launched, crashed, ended;
+    public boolean blinked, hit1Done, returned, hit2Done, hit3Done, launched, landed, crashed, ended;
     public int soundMask;
     public Vec3 lockPos;
     public float lockYaw;
@@ -33,8 +33,6 @@ public final class UltimateSession {
     /** Ilk vurusta hedefin ileri kayma mesafesi (blok, carpismaya gore). */
     public float push;
     public boolean hadNoAi, mob;
-    // carpma takibi
-    public double prevH, prevVy;
     public long debrisAt = -1;
     public Vec3 debrisPos;
     public Vec3 lastTargetPos;

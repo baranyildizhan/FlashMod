@@ -8,6 +8,7 @@ import dev.baranhan.flashmod.client.render.FlashRenderTypes;
 import dev.baranhan.flashmod.client.render.GlowDraw;
 import dev.baranhan.flashmod.ultimate.ArenaFrame;
 import dev.baranhan.flashmod.ultimate.UltimatePhase;
+import dev.baranhan.flashmod.ultimate.UltimateScript;
 import net.minecraft.client.model.HumanoidModel;
 import net.minecraft.client.model.PlayerModel;
 import net.minecraft.client.player.AbstractClientPlayer;
@@ -66,7 +67,7 @@ public final class UltRender {
         float t0 = UltimatePhase.DEPART.start, hit = UltimatePhase.HIT1;
         float idx;
         if (t < hit) idx = 2F * UltCamera.Ease.IN_QUAD.apply((t - t0) / (hit - t0));
-        else idx = 2F + 3F * UltCamera.Ease.IN_QUAD.apply((t - hit) / 8F); // vurur ve hemen firlar
+        else idx = 2F + 3F * UltCamera.Ease.IN_QUAD.apply((t - hit) / 5F); // vurur ve hemen firlar
         idx = Mth.clamp(idx, 0F, 5F);
         int i = Math.min(4, (int) idx);
         float u = idx - i;
@@ -80,6 +81,10 @@ public final class UltRender {
             Vec3 dw = s.arena.toWorld(b).subtract(s.arena.toWorld(a));
             yawOut[0] = dw.lengthSqr() > 1.0E-8 ? UltCamera.yawTo(dw) : s.arena.forwardYaw();
             return s.arena.toWorld(a);
+        }
+        if (t >= UltimatePhase.AIR_BLINK) { // havada hedefin arkasinda/ustunde, sonra hedefin arkasina inis (hedefe doner)
+            yawOut[0] = s.arena.forwardYaw() + 180F;
+            return s.casterAir(t);
         }
         yawOut[0] = s.arena.forwardYaw();
         return p.getPosition(pt);
@@ -195,34 +200,38 @@ public final class UltRender {
         if (s == null || s.abortAt >= 0) return;
         float pt = event.getPartialTick();
         float t = s.t(pt);
-        double ox = 0, oz = 0;
-        if (t >= UltimatePhase.HIT1 && t < UltimatePhase.LAUNCH_T && s.push > 0F) {
-            double k = s.push * UltimatePhase.pushEase(t);
-            Vec3 r = ent.getPosition(pt);
-            ox = s.targetBase.x + s.arena.fx * k - r.x;
-            oz = s.targetBase.z + s.arena.fz * k - r.z;
-            double l = Math.sqrt(ox * ox + oz * oz), max = s.push + 0.3;
-            if (l > max) { ox *= max / l; oz *= max / l; }
+        double ox = 0, oy = 0, oz = 0;
+        if (UltimateScript.targetScripted(t)) { // betikteki yere cek (sunucu da ayni yere tasir; gecikme/onizleme yumusak)
+            Vec3 want = s.targetScripted(t), r = ent.getPosition(pt);
+            ox = want.x - r.x;
+            oy = want.y - r.y;
+            oz = want.z - r.z;
+            double l = Math.sqrt(ox * ox + oy * oy + oz * oz), max = UltimateScript.RISE + 4.0;
+            if (l > max) { ox *= max / l; oy *= max / l; oz *= max / l; }
         }
-        float k;
-        float lean;
+        float k = 1F, lean;
         if (t >= UltimatePhase.HIT1 && t < UltimatePhase.PUSH_END + 2F) { // ilk vurus: kisa savrulma
             float u = t - UltimatePhase.HIT1;
             k = u < 1.5F ? u / 1.5F : Math.max(0F, 1F - (u - 1.5F) / (UltimatePhase.PUSH_END + 2F - UltimatePhase.HIT1 - 1.5F));
             lean = -18F;
-        } else if (t >= UltimatePhase.HIT2 && t < UltimatePhase.HITSTOP_END + 2F) {
-            k = t < UltimatePhase.HITSTOP_END ? Math.min(1F, (t - UltimatePhase.HIT2) / 0.6F)
-                    : 1F - (t - UltimatePhase.HITSTOP_END) / 2F;
-            lean = -15F;
+        } else if (t >= UltimatePhase.HIT2 && t < UltimatePhase.LAUNCH_T) { // darbe
+            lean = -15F * Math.min(1F, (t - UltimatePhase.HIT2) / 0.6F);
+        } else if (t >= UltimatePhase.LAUNCH_T && t < UltimatePhase.HIT3) { // havaya kalkarken geriye kavis, asiliyken hafif salinim
+            float u = Mth.clamp((t - UltimatePhase.LAUNCH_T) / 8F, 0F, 1F);
+            lean = Mth.lerp(u * u * (3F - 2F * u), -15F, -42F) + 3F * Mth.sin((t - UltimatePhase.LAUNCH_T) * 0.25F) * u;
+        } else if (t >= UltimatePhase.HIT3 && t < UltimatePhase.SLAM_T) { // yumruk sirttan: one katlanarak cakilir
+            float u = Mth.clamp((t - UltimatePhase.HIT3) / 1.2F, 0F, 1F);
+            lean = Mth.lerp(u, -42F, 32F);
+        } else if (t >= UltimatePhase.SLAM_T && t < UltimatePhase.SLAM_T + 8F) {
+            lean = 32F * (1F - (t - UltimatePhase.SLAM_T) / 8F);
         } else {
-            k = 0F;
             lean = 0F;
         }
-        if (k <= 0F && ox == 0 && oz == 0) return;
+        if ((k <= 0F || lean == 0F) && ox == 0 && oy == 0 && oz == 0) return;
         PoseStack ps = event.getPoseStack();
         ps.pushPose();
-        ps.translate(ox, 0D, oz);
-        double back = 0.15D * k;
+        ps.translate(ox, oy, oz);
+        double back = t < UltimatePhase.LAUNCH_T ? 0.15D * k : 0D;
         ps.translate(s.arena.fx * back, 0D, s.arena.fz * back);
         ps.translate(0D, ent.getBbHeight() * 0.3D, 0D);
         // geriye (forward yonunde) egil: eksen = right

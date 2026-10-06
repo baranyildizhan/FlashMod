@@ -34,7 +34,9 @@ public final class UltSounds {
             {192F, "ult_orbit_streak", 1.4F, 0.5F}, {230F, "ult_orbit_streak", 1.7F, 0.9F}, {250F, "ult_return_swell", 1F, 1.2F},
             {262F, "ult_tunnel_rush", 1.05F, 1.3F}, {274F, "ult_land_heavy", 0.8F, 1.3F}, {276F, "ult_eyes_ignite", 1.2F, 1F},
             {276F, "ult_charge_final", 1F, 1.2F}, {286F, "ult_inhale_crack", 1F, 1F}, {290F, "ult_impact_sub", 0.7F, 1.5F},
-            {290F, "ult_hitstop_ring", 1.6F, 0.8F}, {326F, "ult_resolve", 1F, 1F}};
+            {290F, "ult_hitstop_ring", 1.6F, 0.8F}, {305F, "ult_charge_final", 1.3F, 0.9F}, {309F, "ult_whoosh_depart", 1.2F, 1F},
+            {318F, "ult_hitstop_ring", 1.4F, 0.9F}, {318F, "ult_impact_sub", 0.8F, 1.3F}, {327F, "ult_impact_sub", 0.6F, 1.5F},
+            {340F, "ult_resolve", 1F, 1F}};
     /** Donguler: {basla, bitir, id, ses}. */
     private static final Object[][] LOOPS = {
             {6F, 30F, "ult_charge_loop", 0.9F}, {52F, 122F, "ult_void_ambience", 0.8F}, {122F, 182F, "ult_high_wind", 1.0F},

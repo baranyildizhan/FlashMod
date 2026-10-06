@@ -4,7 +4,6 @@ import com.mojang.blaze3d.systems.RenderSystem;
 import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import dev.baranhan.flashmod.FlashMod;
-import dev.baranhan.flashmod.client.ClientSpeedsters;
 import dev.baranhan.flashmod.client.render.BodyPoseCapture;
 import dev.baranhan.flashmod.client.render.FlashRenderTypes;
 import dev.baranhan.flashmod.client.render.GlowDraw;
@@ -17,7 +16,6 @@ import dev.baranhan.flashmod.ultimate.UltimatePhase;
 import net.minecraft.client.Minecraft;
 import net.minecraft.client.renderer.MultiBufferSource;
 import net.minecraft.util.Mth;
-import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 import net.minecraftforge.api.distmarker.Dist;
@@ -162,9 +160,9 @@ public final class UltWorldFx {
                     1F - u);
         }
         // ses duvari: kacarken
-        if (vt >= 44F && vt < 50F) {
-            Vec3 c = a.toWorld(UltRender.proxyArena(44F, a.d)).add(0, 1.0, 0);
-            float u = (vt - 44F) / 6F;
+        if (vt >= 40F && vt < 46F) {
+            Vec3 c = a.toWorld(UltRender.proxyArena(40F, a.d)).add(0, 1.0, 0);
+            float u = (vt - 40F) / 6F;
             GlowDraw.ring(vc, m, rel(c.x, cam.x), rel(c.y, cam.y), rel(c.z, cam.z),
                     (float) a.rx(), 0, (float) a.rz(), 0, 1, 0, Mth.lerp(u, 0.5F, 3.0F), 0.08F * (1F - u) + 0.02F,
                     1F, 1F, 1F, 0.8F * (1F - u), 48);
@@ -173,38 +171,63 @@ public final class UltWorldFx {
         // --- IMPACT
         if (t >= UltimatePhase.HIT2 && t < UltimatePhase.HIT2 + 16F) impact(vc, m, cam, s, t, vt, frame, far, core, glow);
 
-        // --- LAUNCH: firlatilan hedefin izi (bizim iz sistemimiz; node'lar UltDirector'da her tick)
+        // --- havaya kalkan / cakilan hedefin izi (bizim iz sistemimiz; node'lar UltDirector'da her tick)
         if (t >= UltimatePhase.LAUNCH_T && !far && !s.targetTrail.nodes.isEmpty()) {
-            LivingEntity tg = s.target();
-            Vec3 head = tg != null && tg.isAlive() ? tg.getPosition(pt) : s.lastTargetPos;
+            Vec3 head = UltDirector.targetLive(s, pt).subtract(0, s.targetH * 0.5, 0);
             long now = mc.level.getGameTime();
-            float h = tg != null ? tg.getBbHeight() / 1.8F : 1F;
             SpeedTrailRenderer.drawSynthetic(vc, m, s.targetTrail, cam, rel(head.x, cam.x), rel(head.y, cam.y),
-                    rel(head.z, cam.z), h, null, cam, now, pt, bloom(), 6, false, false);
+                    rel(head.z, cam.z), s.targetH / 1.8F, null, cam, now, pt, bloom(), 6, false, false);
         }
 
-        // --- carpma patlamalari
-        for (UltState.Crash c : s.crashes) {
-            float age = mc.level.getGameTime() - c.gameTime() + pt;
-            if (age > 14F) continue;
-            float[] ux = new float[3], vx = new float[3];
-            basis(c.nx(), c.ny(), c.nz(), ux, vx);
-            float x = rel(c.pos().x, cam.x), y = rel(c.pos().y, cam.y), z = rel(c.pos().z, cam.z);
-            int rings = c.slam() ? 1 : 2;
-            for (int i = 0; i < rings; i++) {
-                float u = (age - i * 2F) / 10F;
-                if (u < 0F || u > 1F) continue;
-                float rmax = (c.slam() ? 3F : 3.5F - i);
-                GlowDraw.ring(vc, m, x, y, z, ux[0], ux[1], ux[2], vx[0], vx[1], vx[2], Mth.lerp(u, 0.5F, rmax),
-                        0.06F * (1F - u) + 0.02F, 0.85F, 0.92F, 1F, 0.8F * (1F - u), 48);
+        // --- havada belirme: yerden havadaki noktaya blink simsekleri + belirdigi yerde kucuk patlama
+        if (t >= UltimatePhase.AIR_BLINK - 1F && t < UltimatePhase.AIR_BLINK + 4F && !far) {
+            float k = Mth.clamp(1F - (t - UltimatePhase.AIR_BLINK) / 4F, 0F, 1F);
+            Vec3 from = caster != null ? caster.getPosition(pt).add(0, 1.0, 0) : a.toWorld(0, 1.0, 0);
+            Vec3 to = s.casterAir(UltimatePhase.AIR_BLINK).add(0, 1.0, 0);
+            R.seed(s.seed ^ 0xB11L, frame, 3);
+            for (int i = 0; i < 3; i++) {
+                LINE.clear();
+                Lightning.jag(LINE, R, rel(from.x, cam.x), rel(from.y, cam.y), rel(from.z, cam.z),
+                        rel(to.x + R.signed() * 0.3, cam.x), rel(to.y + R.signed() * 0.3, cam.y), rel(to.z, cam.z),
+                        0.12F, 5, false, k * 0.6F, k);
+                GlowDraw.layered(vc, m, LINE, 1.3F, core, glow, k, bloom(), false);
             }
-            burst(vc, m, cam, c.pos(), Double.NaN, 2.0F, age / 14F, (int) (10 * q()) + 4, s.seed ^ c.gameTime(),
-                    (long) (age / regen()), core, glow, 0.9F);
+        }
+        if (t >= UltimatePhase.AIR_BLINK && t < UltimatePhase.AIR_BLINK + 9F && !far) {
+            burst(vc, m, cam, s.casterAir(t).add(0, 1.0, 0), Double.NaN, 1.8F, (t - UltimatePhase.AIR_BLINK) / 9F,
+                    (int) (10 * q()) + 4, s.seed ^ 0xA1BL, frame, core, glow, 0.9F);
         }
 
-        // --- goz parlamasi (gercek govde, darbeden sonra)
-        if (body != null && t >= UltimatePhase.HIT2 && t < UltimatePhase.HIT2 + 17F) {
-            eyes(vc, m, cam, body, t < UltimatePhase.HITSTOP_END ? 1F : 1F - (t - UltimatePhase.HITSTOP_END) / 13F, core, glow);
+        // --- havadaki yumruk: hedefin sirtinda patlama (hit-stop'ta donar) + sok halkasi
+        if (vt >= UltimatePhase.HIT3 && vt < UltimatePhase.HIT3 + 12F && !far) {
+            float u = (vt - UltimatePhase.HIT3) / 12F;
+            Vec3 c = s.targetScripted(UltimatePhase.HIT3).add(a.fx * 0.25, s.targetH * 0.8, a.fz * 0.25);
+            burst(vc, m, cam, c, Double.NaN, 2.6F, u, (int) (14 * q()) + 6, s.seed ^ 0x318L, frame, core, glow, 1F);
+            for (int i = 0; i < 2; i++) {
+                float ur = (vt - UltimatePhase.HIT3 - i * 2F) / 10F;
+                if (ur < 0F || ur > 1F) continue;
+                GlowDraw.ring(vc, m, rel(c.x, cam.x), rel(c.y, cam.y), rel(c.z, cam.z), 1, 0, 0, 0, 0, 1,
+                        Mth.lerp(ur, 0.5F, 3.5F) * (i == 0 ? 1F : 0.7F), Mth.lerp(ur, 0.1F, 0.02F), 1F, 0.92F, 0.78F,
+                        0.7F * (1F - ur), 56);
+            }
+        }
+
+        // --- yere carpma: buyuk simsek patlamasi (ikinci vurustakine benzer), zemine yayilan catlaklar, halkalar
+        if (t >= UltimatePhase.SLAM_T && t < UltimatePhase.SLAM_T + 18F) slam(vc, m, cam, s, t, frame, far, core, glow);
+
+        // --- Flash'in yere inisi
+        if (t >= UltimatePhase.CASTER_LAND && t < UltimatePhase.CASTER_LAND + 7F && !far) {
+            float u = (t - UltimatePhase.CASTER_LAND) / 7F;
+            Vec3 l = s.casterAir(UltimatePhase.CASTER_LAND);
+            groundCracks(vc, m, cam, l, 6, 2.2F * Math.min(1F, u * 3F), s.seed ^ 0x1A4DL, frame, core, glow, 1F - u);
+            GlowDraw.ring(vc, m, rel(l.x, cam.x), rel(l.y + 0.05, cam.y), rel(l.z, cam.z), 1, 0, 0, 0, 0, 1,
+                    Mth.lerp(u, 0.4F, 3.0F), 0.06F, gr, gg, gb, 0.6F * (1F - u), 40);
+        }
+
+        // --- goz parlamasi (gercek govde, darbeden yere carpmaya kadar)
+        float eyeEnd = UltimatePhase.SLAM_T + 8F;
+        if (body != null && t >= UltimatePhase.HIT2 && t < eyeEnd) {
+            eyes(vc, m, cam, body, t < UltimatePhase.SLAM_T ? 1F : 1F - (t - UltimatePhase.SLAM_T) / 8F, core, glow);
         }
 
         // --- izleyiciler: tepede donen kosucu izi
@@ -214,9 +237,9 @@ public final class UltWorldFx {
     private static float veinIntensity(float vt) {
         if (vt >= UltimatePhase.WINDUP.start && vt < UltimatePhase.WINDUP.end) return 0.6F + 0.4F * UltimatePhase.WINDUP.local(vt);
         if (vt >= UltimatePhase.DEPART.start && vt < UltimatePhase.DEPART.end) return 1.0F;
-        if (vt >= UltimatePhase.HIT2 && vt < UltimatePhase.LAUNCH.start) return 1.2F;
-        float fadeEnd = UltimatePhase.LAUNCH.start + 30F;
-        if (vt >= UltimatePhase.LAUNCH.start && vt < fadeEnd) return 0.5F * (1F - (vt - UltimatePhase.LAUNCH.start) / 30F);
+        if (vt >= UltimatePhase.HIT2 && vt < UltimatePhase.SLAM_T) return 1.2F;
+        float fadeEnd = UltimatePhase.SLAM_T + 25F;
+        if (vt >= UltimatePhase.SLAM_T && vt < fadeEnd) return 0.6F * (1F - (vt - UltimatePhase.SLAM_T) / 25F);
         return 0F;
     }
 
@@ -377,6 +400,31 @@ public final class UltWorldFx {
                         rel(p1.y, cam.y), rel(p1.z, cam.z), 0.12F, 5, false, al, 0F);
                 GlowDraw.layered(vc, m, LINE, 0.9F, core, glow, 1F, bloom(), false);
             }
+        }
+    }
+
+    /** Hedefin yere cakildigi yerde ikinci vurustakine benzer buyuk simsek patlamasi. */
+    private static void slam(VertexConsumer vc, Matrix4f m, Vec3 cam, UltState s, float t, long frame, boolean far,
+                             int core, int glow) {
+        float reduce = FlashClientConfig.ULT_REDUCE_FLASHES.get() ? 0.7F : 1F;
+        Vec3 g = s.targetScripted(UltimatePhase.SLAM_T);
+        float age = (t - UltimatePhase.SLAM_T) / 18F;
+        if (far) {
+            int warm = GlowDraw.mixRgb(0xFFD9A0, glow, 0.5F);
+            GlowDraw.orb(vc, m, rel(g.x, cam.x), rel(g.y + 1, cam.y), rel(g.z, cam.z), 3F, GlowDraw.cr(warm), GlowDraw.cg(warm),
+                    GlowDraw.cb(warm), 0.6F * (1F - age));
+            return;
+        }
+        burst(vc, m, cam, g.add(0, 0.9, 0), g.y, 5.2F * reduce, age, (int) (16 * q()) + 6, s.seed ^ 0x51A3L, frame, core,
+                glow, 1F);
+        groundCracks(vc, m, cam, g, 9, 8.0F * Math.min(1F, age * 4F) * reduce, s.seed ^ 0x6E1L, frame, core, glow,
+                Math.max(0F, 1F - age));
+        float x = rel(g.x, cam.x), y = rel(g.y + 0.06, cam.y), z = rel(g.z, cam.z);
+        for (int i = 0; i < 3; i++) { // zeminde genisleyen sok halkalari
+            float u = (t - UltimatePhase.SLAM_T - i * 2.5F) / 12F;
+            if (u < 0F || u > 1F) continue;
+            GlowDraw.ring(vc, m, x, y, z, 1, 0, 0, 0, 0, 1, Mth.lerp(u, 0.6F, 8.0F - i * 1.5F),
+                    Mth.lerp(u, 0.16F, 0.03F), 1F, 0.93F, 0.8F, 0.75F * (1F - u), 64);
         }
     }
 

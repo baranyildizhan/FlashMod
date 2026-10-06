@@ -31,18 +31,30 @@ public final class UltPoses {
     static final float[] PUNCH_COCK = p(12, -28, -0.10F, -6, 18, 0, -145, 0, 28, -65, 20, 0, -25, 0, 6, 25, 0, -6);
     static final float[] PUNCH_RELEASE = p(18, 24, -0.12F, -10, -18, 0, -95, -12, 0, 45, 0, -12, 32, 0, 0, -40, 0, 0);
     static final float[] FINISH_POSE = p(-4, 30, 0, 5, -20, 0, -150, 0, -22, 22, 0, 28, 8, 0, 0, -62, 0, -6);
+    /** Hedef havaya kalkarken onu izler: kafa yukarida, yumruk havada. */
+    static final float[] WATCH_UP = p(-8, 12, 0, -42, -10, 0, -150, 0, -22, 22, 0, 28, 8, 0, 0, -30, 0, -6);
+    /** Havada, hedefin arkasinda/ustunde: one-asagi egik, yumruk geride kurulu, bacaklar toplu. */
+    static final float[] AIR_COCK = p(34, -26, 0, -30, 18, 0, -150, 0, 28, -60, 20, 0, -75, 0, 6, -30, 0, -6);
+    /** Asagi dogru yumruk. */
+    static final float[] AIR_PUNCH = p(48, 26, 0, -38, -18, 0, -100, -12, 0, 50, 0, -14, -40, 0, 0, 25, 0, 0);
+    /** Inis: kollar acik, bacaklar hafif bukuk. */
+    static final float[] AIR_FALL = p(12, 0, 0, -20, 0, 0, -150, 0, 35, -150, 0, -35, -35, 0, 6, -15, 0, -6);
+    /** Yere inis (comelmis, bir yumruk yerde). */
+    static final float[] LAND = p(40, -8, -0.55F, -22, 6, 0, -20, 0, -10, 30, 0, 20, -85, 0, 6, 45, 0, -6);
     /** SPRINT isareti: tablo yerine dongu (kadans zamanla degisir, bkz. runPhase). */
     private static final float[] SPRINT = new float[N];
 
     /** {start, end, blend} + poz. Zamanlar UltimatePhase'e goreli. */
     private static final float[][] ROWS = {
-            {0, 6, 0}, {6, 30, 3}, {30, 34, 2}, {34, 38, 1}, {38, 262, 2},
-            {262, 270, 0}, {270, 276, 3}, {276, 290, 3}, {290, 294, 1}, {294, 330, 6}};
+            {0, 6, 0}, {6, 30, 3}, {30, 32, 1}, {32, 35, 1}, {35, 262, 2},
+            {262, 270, 0}, {270, 276, 3}, {276, 290, 3}, {290, 294, 1}, {294, 306, 3},
+            {306, 310, 2}, {310, 318, 2}, {318, 321, 1}, {321, 332, 2}, {332, 337, 1}, {337, 346, 4}};
     private static final float[][] POSES = {
             IDLE_LOCK, CHARGE_ROAR, DASH_LEAN, DASH_STRIKE, SPRINT,
-            SPRINT, CHARGE_CROUCH, PUNCH_COCK, PUNCH_RELEASE, FINISH_POSE};
+            SPRINT, CHARGE_CROUCH, PUNCH_COCK, PUNCH_RELEASE, WATCH_UP,
+            CHARGE_CROUCH, AIR_COCK, AIR_PUNCH, AIR_FALL, LAND, FINISH_POSE};
     /** Vanilla'ya donus penceresi (RECOVER sonu). */
-    private static final float FADE_START = 330F, FADE_END = UltimatePhase.DURATION;
+    private static final float FADE_START = 346F, FADE_END = UltimatePhase.DURATION;
 
     /**
      * Kosu kadansi (adim/sn) dugumleri {t, hz}; aralarda dogrusal. DEPART'ta hizli kacis, VOID'de surekli kosu ve

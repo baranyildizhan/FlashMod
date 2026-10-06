@@ -1,6 +1,7 @@
 package dev.baranhan.flashmod.client.ultimate;
 
 import dev.baranhan.flashmod.ultimate.UltimatePhase;
+import dev.baranhan.flashmod.ultimate.UltimateScript;
 import net.minecraft.util.Mth;
 import net.minecraft.world.phys.Vec3;
 
@@ -67,6 +68,7 @@ public final class UltCamera {
     public static Track[] build(float d, float push, float targetWidth) {
         double wx = Math.max(0D, (targetWidth - 0.6D) * 0.5D);
         double di = d + push; // itilmis hedef
+        double ha = UltimateScript.RISE + 0.3, za = di + 0.8, zl = di + 0.3; // havadaki hedef, cakildigi yer
         UltimatePhase.Space A = UltimatePhase.Space.ARENA, S = UltimatePhase.Space.SCENE;
         Ease L = Ease.LINEAR;
         return new Track[]{
@@ -80,8 +82,8 @@ public final class UltCamera {
                 // hedefin ileri kaymasi, caster'in uzaklasmasi
                 new Track(A, new Key[]{
                         k(30, -3.90 - wx, 1.05, d * 0.45, -0.3, 1.00, d * 0.55, 62, 2, L, true),
-                        k(36, -3.70 - wx, 1.10, d * 0.50 + 0.2, -0.3, 1.05, d + 0.1, 60, 2, Ease.OUT_QUAD, false),
-                        k(46, -3.50 - wx, 1.15, d * 0.55 + 0.6, -0.4, 1.05, di + 1.5, 62, 0, Ease.IN_OUT_CUBIC, false),
+                        k(33, -3.80 - wx, 1.08, d * 0.48 + 0.1, -0.3, 1.05, d, 61, 2, Ease.OUT_QUAD, false),
+                        k(43, -3.50 - wx, 1.15, d * 0.55 + 0.6, -0.4, 1.05, di + 1.5, 62, 0, Ease.IN_OUT_CUBIC, false),
                         k(52, -3.40 - wx, 1.15, d * 0.60 + 0.8, -0.6, 1.00, d + 12.0, 68, 0, L, false)}),
                 // VOID: kosucuyu takip; omuz arkasi -> yan -> on 3/4 (kameraya kosar) -> genis yan -> kosucu uzaklasir
                 new Track(S, new Key[]{
@@ -120,12 +122,23 @@ public final class UltCamera {
                         kd(290, -3.10, 0.90, di - 1.60, LOOK_CONTACT, Vec3.ZERO, 66, 4, L, true),
                         kd(294, -3.15, 0.92, di - 1.65, LOOK_CONTACT, Vec3.ZERO, 64, 4, L, false),
                         kd(298, -3.30, 0.95, di - 1.80, LOOK_CONTACT, new Vec3(0, 0, 0.6), 70, 3, Ease.OUT_CUBIC, false)}),
-                // LAUNCH: omuz ustu (kafayi kadrajda dev gostermeyecek kadar yukarida/yanda), yayli takip -> genis cekim
+                // LAUNCH: genis yan cekim; yerde izleyen Flash ile havaya kalkan hedefin ortasina yayli bakis
                 new Track(A, new Key[]{
-                        kd(298, 1.50, 2.15, di - 3.30, LOOK_TARGET, Vec3.ZERO, 62, 0, L, true),
-                        kd(308, 1.60, 2.35, di - 3.60, LOOK_TARGET, Vec3.ZERO, 66, 0, L, false),
-                        kd(315, -1.20, 2.60, di - 5.50, LOOK_MID, Vec3.ZERO, 76, 0, Ease.IN_OUT_CUBIC, false),
-                        kd(322, -1.20, 2.60, di - 5.50, LOOK_MID, Vec3.ZERO, 76, 0, L, false)}),
+                        kd(298, -6.80 - wx, 1.60, di - 1.20, LOOK_MID, Vec3.ZERO, 66, 2, L, true),
+                        kd(306, -8.20 - wx, 2.40, di - 1.60, LOOK_MID, Vec3.ZERO, 70, 3, Ease.IN_OUT_SINE, false),
+                        kd(310, -8.40 - wx, 2.60, di - 1.70, LOOK_MID, Vec3.ZERO, 70, 3, L, false)}),
+                // AIR: Flash'in arkasindan, hemen hemen onun hizasindan (Flash kadrajin ortasinda, hedef asagida-onde);
+                // yumruktan sonra cakilan hedefe asagi bakis
+                new Track(A, new Key[]{
+                        k(310, 1.30, ha + 3.20, za + 7.20, 0, ha + 1.80, za + 0.40, 62, -4, L, true),
+                        k(318, 0.90, ha + 3.00, za + 5.90, 0, ha + 1.60, za + 0.50, 58, -3, Ease.OUT_CUBIC, false),
+                        k(321, 0.85, ha + 2.95, za + 5.80, 0, ha + 1.55, za + 0.50, 57, -3, L, false),
+                        k(327, 1.10, ha + 2.20, za + 6.20, 0, 0.80, za - 0.30, 66, -1, Ease.IN_QUAD, false)}),
+                // SLAM: yerden genis cekim; simsek patlamasi ve Flash'in inisi
+                new Track(A, new Key[]{
+                        k(327, -5.20 - wx, 1.30, zl + 0.50, 0, 0.90, zl, 74, 3, L, true),
+                        k(333, -4.80 - wx, 1.60, zl + 1.80, 0, 1.00, zl + 0.90, 68, 2, Ease.OUT_CUBIC, false),
+                        k(340, -4.60 - wx, 1.80, zl + 2.20, 0, 1.10, zl + 1.00, 64, 0, Ease.IN_OUT_SINE, false)}),
         };
     }
 

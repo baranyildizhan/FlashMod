@@ -11,8 +11,9 @@ import org.joml.Matrix4f;
  * OCEAN: gun batiminda acik denizde su ustunde kosu. Su duz bir duzlem (kure degil); kamera alcaktan takip eder,
  * director ufku sol alttan sag uste egik ve su alani ekranin ~%40'i olacak sekilde pitch/roll'u hesaplar.
  * Arka plan tam kure (gercek dunya hicbir aciyla gorunmez). Su: dunyaya sabit dalgalar, Fresnel'li gok yansimasi,
- * gunes parlamasi. Kosucunun ayaklarindan V seklinde su duvarlari, arkasinda kopuk izi, sicrayan damlalar,
- * her adimda kucuk halkalar ve bizim simsek izimiz. Sonda hizlanip ufukta gokyuzune firlar.
+ * gunes parlamasi. Kosucunun ayaklarindan V seklinde su duvarlari, arkasinda kopuk izi, her adimda sicrayan
+ * damlalar ve su sisi, iki yana surekli sacilan su, kucuk halkalar ve bizim simsek izimiz. Sonda hizlanip ufka
+ * dogru uzaklasir.
  */
 public final class UltOceanScene implements UltScene.Scene {
     private static final Lightning.Rng R = new Lightning.Rng(808);
@@ -329,6 +330,51 @@ public final class UltOceanScene implements UltScene.Scene {
                 ringOnWater(sp, m, fx, fz, 0.2 + 1.4 * u, (1F - u) * 0.6F * lift);
             }
         }
+        // etrafa sacilan su: iki yana ve yukari firlayan damlalar (surekli), geri suya duserler
+        int spray = Math.max(30, (int) (110 * c.quality));
+        for (int i = 0; i < spray; i++) {
+            R.seed(c.s.seed ^ 0x5B4AL, i, 7);
+            float life = 12F + 10F * R.next();
+            float age = (t + R.next() * life) % life, born = t - age;
+            if (runnerY(born) > 0.5) continue;
+            int side = R.next() < 0.5F ? -1 : 1;
+            double vx = side * (0.25 + 0.6 * R.next()), vy = 0.35 + 0.45 * R.next(), vz = 0.6 + 1.2 * R.next();
+            double px = side * 0.3 + vx * age, py = vy * age - 0.045 * age * age, pz = runnerZ(born) - 0.2 + vz * age;
+            if (py < -0.05) continue;
+            float a = Math.min(1F, (1F - age / life) * 1.6F) * 0.95F * lift;
+            float size = 0.3F + 0.75F * (age / life);
+            UltDraw.billboard(sp, m, px, py, pz, c.right, c.up, size, size, 0F, 0xF4FAFF, a);
+        }
+        UltDraw.end();
+        // daha iri su topaklari (yumusak bulut dokusu): ayaklardan iki yana kalkip dagilan su
+        BufferBuilder clump = UltDraw.begin(UltTextures.CLOUD, UltDraw.Blend.ALPHA, false, false);
+        int clumps = Math.max(10, (int) (28 * c.quality));
+        for (int i = 0; i < clumps; i++) {
+            R.seed(c.s.seed ^ 0xC1A7L, i, 3);
+            float life = 10F + 6F * R.next();
+            float age = (t + R.next() * life) % life, born = t - age;
+            if (runnerY(born) > 0.5) continue;
+            int side = R.next() < 0.5F ? -1 : 1;
+            double vx = side * (0.15 + 0.35 * R.next()), vy = 0.3 + 0.3 * R.next(), vz = 0.4 + 0.8 * R.next();
+            double px = side * 0.35 + vx * age, py = vy * age - 0.04 * age * age, pz = runnerZ(born) - 0.3 + vz * age;
+            if (py < -0.1) continue;
+            float u = age / life, size = 0.6F + 1.6F * u;
+            UltDraw.billboard(clump, m, px, py, pz, c.right, c.up, size, size, R.next() * 6F, 0xF6FAFF,
+                    0.55F * (1F - u) * lift);
+        }
+        UltDraw.end();
+        // ayak dibinde su sisi (her adimda kabaran beyaz bulutcuklar)
+        BufferBuilder mist = UltDraw.begin(UltTextures.CLOUD, UltDraw.Blend.ALPHA, false, false);
+        for (long st = step; st > step - 6; st--) {
+            float born = t - (float) ((ph - st) * Math.PI / (2 * Math.PI * 9.0 / 20.0));
+            float life = t - born;
+            if (life < 0F || life > 12F || runnerY(born) > 0.5) continue;
+            R.seed(c.s.seed ^ 0x3157L, st, 2);
+            double px = (st % 2 == 0 ? 0.2 : -0.2) + R.signed() * 0.3, pz = runnerZ(born) - 0.3 - life * 0.15;
+            float u = life / 12F, size = 0.9F + 2.4F * u;
+            UltDraw.billboard(mist, m, px, 0.25 + 0.5 * u, pz, c.right, c.up, size, size * 0.7F, R.next() * 3F, 0xF4F8FF,
+                    0.35F * (1F - u) * lift);
+        }
         UltDraw.end();
     }
 
@@ -379,14 +425,5 @@ public final class UltOceanScene implements UltScene.Scene {
             UltScene.drawCaster(c, PATH, 0F, true, Math.max(2, (int) (4 * c.quality)), spacing, 0.3F, 0.9F, 0F);
         }
         UltScene.drawTrail(c, PATH, T0 - 30F, t < RISE_T ? 16 : 22, 1F, body, 1F);
-        if (t >= ACCEL_T + 4F) { // hizlanip gokyuzune firlarken basindaki isik
-            float k = Mth.clamp((t - ACCEL_T - 4F) / 8F, 0F, 1F);
-            Vec3 h = PATH.at(t).add(0, 1.0, 0);
-            BufferBuilder b = UltDraw.begin(UltTextures.GLOW, UltDraw.Blend.ADD, true, false);
-            float d = (float) h.distanceTo(c.cam), s = Math.max(3.5F, d * 0.08F); // uzakta da secilsin
-            UltDraw.billboard(b, c.m, h.x, h.y, h.z, c.right, c.up, s * 3F, s * 3F, 0F, UltDraw.mix(0xFFC890, c.glow, 0.4F), 0.7F * k);
-            UltDraw.billboard(b, c.m, h.x, h.y, h.z, c.right, c.up, s, s, 0F, 0xFFFFFF, k);
-            UltDraw.end();
-        }
     }
 }
