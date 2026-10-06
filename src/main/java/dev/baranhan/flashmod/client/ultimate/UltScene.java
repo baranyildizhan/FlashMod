@@ -5,7 +5,9 @@ import com.mojang.blaze3d.vertex.PoseStack;
 import com.mojang.blaze3d.vertex.VertexConsumer;
 import com.mojang.blaze3d.vertex.VertexSorting;
 import dev.baranhan.flashmod.FlashMod;
+import dev.baranhan.flashmod.client.ClientSpeedsters;
 import dev.baranhan.flashmod.client.render.BodyPoseCapture;
+import dev.baranhan.flashmod.client.render.SpeedTrailRenderer;
 import dev.baranhan.flashmod.client.render.FlashRenderTypes;
 import dev.baranhan.flashmod.config.FlashClientConfig;
 import dev.baranhan.flashmod.ultimate.UltimatePhase;
@@ -55,6 +57,14 @@ public final class UltScene {
     private static final Ctx CTX = new Ctx();
     private static final Scene VOID = new UltVoidScene(), OCEAN = new UltOceanScene(), ORBIT = new UltOrbitScene(),
             TUNNEL = new UltTunnelScene();
+
+    /** Takip kamerasi icin: t'deki fazin kosucusunun sahne konumu, 'at' aninda. */
+    public static Vec3 runner(float t, float at) {
+        UltimatePhase ph = UltimatePhase.at(t);
+        if (ph == UltimatePhase.VOID) return UltVoidScene.PATH.at(at);
+        if (ph == UltimatePhase.OCEAN) return UltOceanScene.PATH.at(at);
+        return Vec3.ZERO;
+    }
 
     private UltScene() {}
 
@@ -120,6 +130,71 @@ public final class UltScene {
     private static final float[] POSE = new float[UltPoses.N], GP = new float[UltPoses.N];
 
     public interface Path { Vec3 at(float t); }
+
+    /** Iz yolu: konum + o ana kadar katedilen mesafe (iz dalgalari odometreye sabit, kareden kareye kaymaz). */
+    public interface TrailPath extends Path {
+        double odo(float t);
+
+        /** Yerel yukari (izin "yukseklik" ekseni). Varsayilan dunya yukarisi. */
+        default Vec3 up(Vec3 p) { return UP; }
+    }
+
+    private static final Vec3 UP = new Vec3(0, 1, 0);
+
+    /**
+     * Iz yolunu bizim iz node'larina cevirir (yeni -> eski, her tick bir node). Node tick'i k-1: buildPath'in yas
+     * hesabi (now - tick - 1 + pt) / life boylece tam olarak (vt - k) / life olur. scale: iz birimi.
+     */
+    public static void fillNodes(ClientSpeedsters.Entry e, TrailPath path, float vt, float minT, int life, float scale,
+                                 float alpha) {
+        e.trailLifeOverride = life;
+        e.nodes.clear();
+        long now = (long) Math.floor(vt);
+        double inv = 1.0 / scale;
+        for (long k = now; k >= now - life - 1 && k >= (long) Math.ceil(minT); k--) {
+            Vec3 p = path.at(k), a = path.at(k + 0.5F), b = path.at(k - 0.5F);
+            Vec3 dir = a.subtract(b);
+            Vec3 up = path.up(p);
+            Vec3 side = dir.cross(up);
+            double sl = side.length();
+            side = sl < 1.0E-6 ? new Vec3(1, 0, 0) : side.scale(1.0 / sl);
+            e.nodes.addLast(new ClientSpeedsters.TrailNode(p.x * inv, p.y * inv, p.z * inv, (float) side.x, (float) side.y,
+                    (float) side.z, (float) up.x, (float) up.y, (float) up.z, path.odo(k) * inv, alpha, k - 1, 1F));
+        }
+        if (e.nodes.isEmpty()) return;
+        ClientSpeedsters.TrailNode first = e.nodes.peekFirst(); // kafa noktasi ilk node'un cercevesini kullanir
+        e.sideX = first.sideX(); e.sideY = first.sideY(); e.sideZ = first.sideZ();
+        e.upX = first.upX(); e.upY = first.upY(); e.upZ = first.upZ();
+    }
+
+    /**
+     * Sahnedeki kosucunun izi bizim iz sistemimizle (SpeedTrailRenderer.drawSynthetic): yol her tick'te orneklenir,
+     * node'lar normal oyuncu iziyle ayni bicimde uretilir. scale > 1: iz sahnede o kadar buyuk cizilir (yorunge).
+     * withBody: govde pozu (drawCaster'da yakalanan) varsa iplikler govdeden cikar.
+     */
+    public static void drawTrail(Ctx c, TrailPath path, float minT, int life, float scale, boolean withBody, float alpha) {
+        ClientSpeedsters.Entry e = c.s.sceneTrail;
+        float vt = c.vt;
+        long now = (long) Math.floor(vt);
+        float pt = vt - now;
+        double inv = 1.0 / scale;
+        fillNodes(e, path, vt, minT, life, scale, alpha);
+        if (e.nodes.isEmpty()) return;
+        Minecraft mc = Minecraft.getInstance();
+        Vec3 head = path.at(vt);
+        Vec3 cam = c.cam.scale(inv);
+        BodyPoseCapture.Pose body = null;
+        Player p = c.s.caster();
+        if (withBody && scale == 1F && p != null) body = BodyPoseCapture.get(p);
+        Matrix4f m = new Matrix4f(c.view).scale(scale);
+        MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
+        VertexConsumer vc = buffers.getBuffer(FlashRenderTypes.ADDITIVE_GLOW);
+        float bloom = Math.max(0.6F, FlashClientConfig.BLOOM.get().floatValue());
+        SpeedTrailRenderer.drawSynthetic(vc, m, e, cam, (float) (head.x * inv - cam.x), (float) (head.y * inv - cam.y),
+                (float) (head.z * inv - cam.z), 1F, body, mc.gameRenderer.getMainCamera().getPosition(), now, pt, bloom,
+                Math.max(6, FlashClientConfig.STRANDS.get()), withBody, true);
+        buffers.endBatch(FlashRenderTypes.ADDITIVE_GLOW);
+    }
 
     /**
      * Caster'i sahne konumunda pozla cizer (entity renderer -> RenderPlayerEvent -> UltRender override kok),

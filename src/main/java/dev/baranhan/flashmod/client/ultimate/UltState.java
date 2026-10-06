@@ -26,7 +26,12 @@ public final class UltState {
     public boolean skipped;
     public final UltCamera.Track[] tracks;
     public final float targetW, targetH, contactY;
+    /** Ilk vurusta hedefin ileri kayma mesafesi; hedefin baslangic konumu (gorsel itme duzeltmesi icin). */
+    public final float push;
+    public final Vec3 targetBase;
     public Vec3 lastTargetPos;
+    /** Bizim iz sistemimizle cizilen sentetik izler: sahnedeki kosucu ve firlatilan hedef. */
+    public final dev.baranhan.flashmod.client.ClientSpeedsters.Entry sceneTrail, targetTrail;
 
     // zaman
     public float previewT;
@@ -68,8 +73,12 @@ public final class UltState {
         this.targetW = t != null ? t.getBbWidth() : 0.6F;
         this.targetH = t != null ? t.getBbHeight() : 1.8F;
         this.contactY = targetH > 2.2F ? targetH * 0.6F : (targetH < 1.0F ? Math.max(0.4F, targetH * 0.6F) : 1.35F);
-        this.tracks = UltCamera.build(arena.d, targetW);
+        this.push = m.push;
+        this.tracks = UltCamera.build(arena.d, push, targetW);
         this.lastTargetPos = t != null ? t.position() : arena.toWorld(0, 0, arena.d);
+        this.targetBase = lastTargetPos;
+        this.sceneTrail = dev.baranhan.flashmod.client.ClientSpeedsters.synthetic(seed ^ 0x51A7L, core, glow);
+        this.targetTrail = dev.baranhan.flashmod.client.ClientSpeedsters.synthetic(seed ^ 0x7A26L, core, glow);
     }
 
     @Nullable
@@ -96,9 +105,19 @@ public final class UltState {
         return ((mc.level.getGameTime() - startGameTime) + pt) / scale;
     }
 
-    /** Temas noktasi (dunya): hedefin gogsu. */
+    /** Hedefin bu t'deki arena mesafesi (ilk vurusla ileri kayar). */
+    public float dAt(float t) {
+        return arena.d + push * dev.baranhan.flashmod.ultimate.UltimatePhase.pushEase(t);
+    }
+
+    /** Ikinci vurusun temas noktasi (dunya): itilmis hedefin gogsu. */
     public Vec3 contact() {
-        return arena.toWorld(0D, contactY, arena.d - 0.25D);
+        return arena.toWorld(0D, contactY, arena.d + push - 0.25D);
+    }
+
+    /** t anindaki temas noktasi (ilk vurusta itme oncesi/sirasi icin). */
+    public Vec3 contact(float t) {
+        return arena.toWorld(0D, contactY, dAt(t) - 0.25D);
     }
 
     public boolean smallTarget() {

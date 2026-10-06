@@ -45,7 +45,7 @@ public final class UltDebug {
     }
 
     private static void scrub(UltState s, float t) {
-        s.previewT = Mth.clamp(t, -2F, 199F);
+        s.previewT = Mth.clamp(t, -2F, UltimatePhase.DURATION - 1F);
         s.lastTickT = s.previewT;   // ses tetikleyicisi atlamasin
         s.lastShakeT = s.previewT;
         s.trauma = 0F;

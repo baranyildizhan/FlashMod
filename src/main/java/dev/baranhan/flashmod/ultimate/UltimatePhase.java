@@ -5,34 +5,42 @@ import net.minecraft.util.Mth;
 /**
  * Ultimate ("Dunya Turu Yumrugu") zaman cizelgesi: tek dogruluk kaynagi. Butun tick'ler mutlak ultimate tick'i.
  * Sunucu ve istemci ayni tablolari kullanir; durationScale yalnizca t hesaplanirken uygulanir.
+ * Baska siniflar sabit sayi yerine buradaki faz baslangiclarina goreli zaman kullanir.
  */
 public enum UltimatePhase {
-    ACTIVATE(0, 4, Space.ARENA),
-    WINDUP(4, 22, Space.ARENA),
-    DEPART(22, 40, Space.ARENA),
-    VOID(40, 86, Space.SCENE),
-    OCEAN(86, 120, Space.SCENE),
-    ORBIT(120, 140, Space.SCENE),
-    TUNNEL(140, 158, Space.SCENE),
-    IMPACT(158, 166, Space.ARENA),
-    LAUNCH(166, 188, Space.ARENA),
-    RECOVER(188, 200, Space.ARENA);
+    ACTIVATE(0, 6, Space.ARENA),
+    WINDUP(6, 30, Space.ARENA),
+    DEPART(30, 52, Space.ARENA),
+    VOID(52, 122, Space.SCENE),
+    OCEAN(122, 182, Space.SCENE),
+    ORBIT(182, 262, Space.SCENE),
+    TUNNEL(262, 290, Space.SCENE),
+    IMPACT(290, 298, Space.ARENA),
+    LAUNCH(298, 322, Space.ARENA),
+    RECOVER(322, 336, Space.ARENA);
 
     public enum Space { ARENA, SCENE }
 
     // ---------------------------------------------------------------- kritik olaylar
-    public static final int DURATION = 200;
+    public static final int DURATION = 336;
     public static final int BLINK = 1;
-    public static final int HIDE_BODY = 22;
-    public static final int HIT1 = 26;
-    public static final int RETURN_TP = 157;
-    public static final int HIT2 = 158;
-    public static final int HITSTOP_END = 162;
-    public static final int LAUNCH_T = 162;
-    public static final int CRASH_END = 192;
-    public static final float HITSTOP_FREEZE = 159F;
+    /** Caster'in gercek govdesi bu andan itibaren proxy yolunda (DEPART). */
+    public static final int HIDE_BODY = 30;
+    /** Ilk vurus: hedef PUSH_END'e kadar ileri kayar. */
+    public static final int HIT1 = 36;
+    public static final int PUSH_END = 46;
+    /** Sahneler (dunya yerine overlay) bu aralikta. */
+    public static final int SCENE_START = 52, SCENE_END = 290;
+    public static final int RETURN_TP = 289;
+    public static final int HIT2 = 290;
+    public static final int HITSTOP_END = 294;
+    public static final int LAUNCH_T = 294;
+    public static final int CRASH_END = 326;
+    public static final float HITSTOP_FREEZE = 291F;
     /** Arena: caster -> hedef mesafesi (varsayilan). */
     public static final float ARENA_DISTANCE = 2.5F;
+    /** Ilk vurusta hedefin en fazla ileri kaymasi (blok); sunucu carpismaya gore kisaltir. */
+    public static final float PUSH_MAX = 1.6F;
 
     public final int start, end;
     public final Space space;
@@ -52,21 +60,28 @@ public enum UltimatePhase {
         return RECOVER;
     }
 
-    /** Gorsel zaman: hit-stop (158-162) boyunca pozlar/parcaciklar 159'da donar. */
+    /** Gorsel zaman: hit-stop (HIT2-HITSTOP_END) boyunca pozlar/parcaciklar HITSTOP_FREEZE'de donar. */
     public static float visual(float t) {
         return t >= HIT2 && t < HITSTOP_END ? Math.min(t, HITSTOP_FREEZE) : t;
     }
 
-    /** Caster'in gercek govdesi dunyada gorunur mu (22-158 arasi gizli; proxy/sahne devralir). */
+    /** Caster'in gercek govdesi dunyada gorunur mu (sahneler boyunca gizli; sahne/yorunge devralir). */
     public static boolean bodyHidden(float t) {
-        return t >= HIDE_BODY && t < HIT2;
+        return t >= SCENE_START && t < HIT2;
+    }
+
+    /** 0..1 ilk vurus itisi (OUT_CUBIC): hedef HIT1 -> PUSH_END arasi ileri kayar. */
+    public static float pushEase(float t) {
+        float u = Mth.clamp((t - HIT1) / (float) (PUSH_END - HIT1), 0F, 1F);
+        float v = 1F - u;
+        return 1F - v * v * v;
     }
 
     // ---------------------------------------------------------------- beyaz flas egrisi
 
     private static final float[][] FLASH = {
-            {36, 40, 1}, {40, 44, -1}, {82, 86, 1}, {86, 89, -1}, {116, 120, 1}, {120, 123, -1},
-            {138, 140, 1}, {140, 143, -1}, {155, 158, 1}, {158, 160, -1}};
+            {48, 52, 1}, {52, 56, -1}, {118, 122, 1}, {122, 125, -1}, {178, 182, 1}, {182, 185, -1},
+            {258, 262, 1}, {262, 265, -1}, {287, 290, 1}, {290, 292, -1}};
 
     /** 0..1 tam ekran beyaz flas alfasi. Faz gecisleri hep alfa=1 aninda olur (kesmeler gorunmez). */
     public static float flash(float t) {

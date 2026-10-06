@@ -30,6 +30,8 @@ public final class UltimateSession {
     // stasis
     public boolean stasis;
     public Vec3 freezePos;
+    /** Ilk vurusta hedefin ileri kayma mesafesi (blok, carpismaya gore). */
+    public float push;
     public boolean hadNoAi, mob;
     // carpma takibi
     public double prevH, prevVy;

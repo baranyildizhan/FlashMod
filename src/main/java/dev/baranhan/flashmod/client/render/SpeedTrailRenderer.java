@@ -146,6 +146,7 @@ public final class SpeedTrailRenderer {
                 if (e.nodes.isEmpty() && !e.active && now - e.deactivatedAt > 20) continue;
                 if (p.isSpectator() || p.isInvisibleTo(mc.player)) continue;
                 if (p.distanceToSqr(cam) > 200 * 200 && e.nodes.isEmpty()) continue;
+                if (dev.baranhan.flashmod.client.ultimate.UltDirector.hidesWorldTrail(p, pt)) continue; // sahne devraldi
                 boolean selfFp = p == mc.player && !camera.isDetached();
                 renderPlayer(vc, pose, cam, p, e, pt, now, bloom, strands, selfFp);
             }
@@ -194,12 +195,33 @@ public final class SpeedTrailRenderer {
             for (int s = 0; s < strands; s++) drawStrand(vc, m, e, s, strands, now, pt, bloom, selfFp);
         }
         if (!selfFp) {
-            drawBody(vc, m, p, e, hx, hy, hz, hScale, intensity, now, bloom);
+            drawBody(vc, m, p.onGround(), e, hx, hy, hz, hScale, intensity, now, bloom);
             if (e.phasing && !e.tornado) drawPhaseStreaks(vc, m, p, e, hx, hy, hz, hScale, pt, bloom);
         }
         drawActivation(vc, m, p, e, hx, hy, hz, hScale, pt, now, bloom);
         dev.baranhan.flashmod.client.AbilityClient.drawCharge(vc, m, p, e, bodyPose, cam, selfFp, bloom);
         drawBoom(vc, m, e, cam, pt, now, bloom);
+    }
+
+    /**
+     * Sentetik iz: oyuncuya bagli olmayan bir yol (ultimate sahneleri, firlatilan hedef). Normal izle birebir ayni
+     * omurga/iplik/katman kodu kullanilir. Node'lar 'cam'e, govde noktalari 'bodyCamera'ya gore cevrilir
+     * (sahnede govde gercek kamerayla yakalanir, node'lar sahne kamerasina goredir). h* = kameraya goreli kafa.
+     */
+    public static void drawSynthetic(VertexConsumer vc, Matrix4f m, Entry e, Vec3 cam, float hx, float hy, float hz,
+                                     float hScale, @javax.annotation.Nullable BodyPoseCapture.Pose body, Vec3 bodyCamera,
+                                     long now, float pt, float bloom, int strands, boolean bodyArcs, boolean onGround) {
+        bodyPose = body;
+        bodyCam = bodyCamera;
+        try {
+            if (buildPath(e, cam, hx, hy, hz, hScale, pt, now) && sn >= 2) {
+                drawHaze(vc, m, e, bloom);
+                for (int s = 0; s < strands; s++) drawStrand(vc, m, e, s, strands, now, pt, bloom, false);
+            }
+            if (bodyArcs) drawBody(vc, m, onGround, e, hx, hy, hz, hScale, e.intensity(pt), now, bloom);
+        } finally {
+            bodyPose = null;
+        }
     }
 
     // ------------------------------------------------------------------ omurga
@@ -537,7 +559,7 @@ public final class SpeedTrailRenderer {
 
     // ------------------------------------------------------------------ govde
 
-    private static void drawBody(VertexConsumer vc, Matrix4f m, Player p, Entry e, float hx, float hy, float hz,
+    private static void drawBody(VertexConsumer vc, Matrix4f m, boolean onGround, Entry e, float hx, float hy, float hz,
                                  float hScale, float intensity, long now, float bloom) {
         if (!e.active) return;
         float h = 1.8F * hScale;
@@ -555,7 +577,7 @@ public final class SpeedTrailRenderer {
             GlowDraw.orb(vc, m, ax, cyy, az, (0.85F + 0.45F * intensity) * hScale, gr, gg, gb,
                     (0.05F + 0.1F * intensity) * bloom);
         }
-        if (p.onGround()) {
+        if (onGround) {
             GlowDraw.disc(vc, m, hx, hy + 0.03F, hz, 1, 0, 0, 0, 0, 1, 0.7F + 0.7F * intensity, gr, gg, gb,
                     (0.06F + 0.12F * intensity) * Math.max(bloom, 0.3F), 14);
         }

@@ -104,8 +104,15 @@ public final class ClientSpeedsters {
         }
 
         Entry(UUID id) {
-            this.seed = id.getMostSignificantBits() ^ (id.getLeastSignificantBits() * 31L);
+            this(id.getMostSignificantBits() ^ (id.getLeastSignificantBits() * 31L));
         }
+
+        Entry(long seed) {
+            this.seed = seed;
+        }
+
+        /** Sentetik izler icin iz omru (tick); 0 = seviyeye gore. */
+        public int trailLifeOverride;
 
         /** 0..1, ekran efektleri / FOV / aura icin. Seviye 10'un normal hizinda ~1. */
         public float intensity(float partialTick) {
@@ -143,7 +150,7 @@ public final class ClientSpeedsters {
 
         /** Iz omru (tick). Yuksek seviye = daha uzun kuyruk. */
         public int trailLife() {
-            return 10 + level;
+            return trailLifeOverride > 0 ? trailLifeOverride : 10 + level;
         }
     }
 
@@ -151,6 +158,21 @@ public final class ClientSpeedsters {
     public static float powerFor(float speed) {
         if (speed < 0.06F) return 0F;
         return Mth.clamp(0.3F + 0.7F * (speed - 0.15F) / 0.6F, 0.3F, 1F);
+    }
+
+    /**
+     * Oyuncuya bagli olmayan, kayitsiz bir iz durumu (ultimate sahneleri, firlatilan hedef). Ayni iz cizicisiyle
+     * cizilir; node'lari cagiran doldurur.
+     */
+    public static Entry synthetic(long seed, int core, int glow) {
+        Entry e = new Entry(seed);
+        e.synced = true;
+        e.active = true;
+        e.level = 10;
+        e.core = core;
+        e.glow = glow;
+        e.speed = e.prevSpeed = 3F;
+        return e;
     }
 
     public static Entry get(UUID id) {

@@ -34,8 +34,10 @@ public final class UltDirector {
     /** Debug: yonetmen kamerayi birakir (serbest kamera). */
     public static boolean freeCam, showInfo;
     private static float roll, fov = 70F;
-    private static final float[] SHAKE_EVENTS = {16, 0.2F, 26, 0.45F, 55, 0.3F, 66, 0.25F, 93, 0.55F, 138, 0.3F,
-            148, 0.35F, 158, 1.0F, 162, 0.6F};
+    private static final float[] SHAKE_EVENTS = {22, 0.2F, UltimatePhase.HIT1, 0.5F, 53, 0.3F, 86, 0.25F, 112, 0.55F,
+            126, 0.4F, 230, 0.2F, 272, 0.35F, UltimatePhase.HIT2, 1.0F, UltimatePhase.LAUNCH_T, 0.6F};
+    /** Okyanus kompozisyonu: ufuk ekranin sol kenarinda alttan %6, sag kenarinda alttan %78 yukseklikte (su ~%42). */
+    private static final float OCEAN_LEFT = 0.06F, OCEAN_RIGHT = 0.78F;
 
     private UltDirector() {}
 
@@ -112,17 +114,19 @@ public final class UltDirector {
             if (s.preview && !s.paused) s.previewT += 1F;
             float t = s.t(0F);
             boolean aborted = s.abortAt >= 0 && mc.level.getGameTime() - s.abortAt > 10;
-            if (t > (s.preview ? 205F : 230F) || aborted || (!s.preview && s.caster() == null && t > 4F)) {
+            if (t > UltimatePhase.DURATION + (s.preview ? 5F : 30F) || aborted || (!s.preview && s.caster() == null && t > 4F)) {
                 UltSounds.stopAll(s);
                 it.remove();
                 continue;
             }
             if (s.abortAt < 0) UltSounds.tick(s, s.lastTickT, t);
             s.lastTickT = t;
+            recordTargetTrail(s, t, mc.level.getGameTime());
         }
         UltState f = full();
         float ft = f == null ? -1F : f.t(0F);
-        BlitzLock.ultimateLocked = (f != null && f.abortAt < 0 && ft >= 0F && ft < 200F && !freeCam) || stasisLocal && f != null;
+        BlitzLock.ultimateLocked = (f != null && f.abortAt < 0 && ft >= 0F && ft < UltimatePhase.DURATION && !freeCam)
+                || stasisLocal && f != null;
     }
 
     /** Yerel oyuncunun hareketi kilitli mi (tam sinematik ya da stasis'teki hedef). */
@@ -130,10 +134,10 @@ public final class UltDirector {
         UltState f = full();
         if (f != null && f.abortAt < 0) {
             float t = f.t(0F);
-            if (t >= 0F && t < 198F && !freeCam) return true;
+            if (t >= 0F && t < UltimatePhase.DURATION - 2 && !freeCam) return true;
         }
         for (UltState s : SESSIONS.values()) {
-            if (s.skipped && s.abortAt < 0 && s.t(0F) < 200F) return true;
+            if (s.skipped && s.abortAt < 0 && s.t(0F) < UltimatePhase.DURATION) return true;
         }
         return stasisLocal;
     }
@@ -152,14 +156,20 @@ public final class UltDirector {
         UltState f = full();
         if (f == null || f.abortAt >= 0 || freeCam) return false;
         float t = f.t(0F);
-        return t >= 0F && t < 196F;
+        return t >= 0F && t < UltimatePhase.DURATION - 4;
     }
 
     public static boolean controlsCamera() {
         UltState f = full();
         if (f == null || freeCam) return false;
         float t = f.t(0F);
-        return t >= 0F && t < 200F;
+        return t >= 0F && t < UltimatePhase.DURATION;
+    }
+
+    /** Bu oyuncu bir ultimate'in caster'i ve govdesi su an sahneye tasindi mi (dunyadaki normal izi cizilmesin). */
+    public static boolean hidesWorldTrail(Player p, float pt) {
+        UltState s = forCaster(p.getId());
+        return s != null && s.abortAt < 0 && UltimatePhase.bodyHidden(s.t(pt));
     }
 
     /** Su an bir SCENE fazi mi oynuyor (dunya yerine sahne cizilecek). */
@@ -168,7 +178,7 @@ public final class UltDirector {
         UltState f = full();
         if (f == null || f.abortAt >= 0 || freeCam) return null;
         float t = f.t(pt);
-        return t >= 40F && t < 158F ? f : null;
+        return t >= UltimatePhase.SCENE_START && t < UltimatePhase.SCENE_END ? f : null;
     }
 
     public static float roll() { return roll; }
@@ -187,7 +197,7 @@ public final class UltDirector {
         long nanos = System.nanoTime();
         float dt = lastNanos == 0 ? 0.016F : Mth.clamp((nanos - lastNanos) / 1.0E9F, 0F, 0.1F);
         lastNanos = nanos;
-        if (t < 0F || t >= 200F) return null;
+        if (t < 0F || t >= UltimatePhase.DURATION) return null;
         Player self = mc.player;
         Vec3 eye = self.getEyePosition(pt);
         float liveYaw = self.getViewYRot(pt), livePitch = self.getViewXRot(pt);
@@ -201,7 +211,8 @@ public final class UltDirector {
             s.snapFov = liveFov;
         }
 
-        UltCamera.State c = UltCamera.evaluate(s.tracks, Math.max(t, 4F));
+        float intro = UltimatePhase.WINDUP.start;
+        UltCamera.State c = UltCamera.evaluate(s.tracks, Math.max(t, intro));
         Vec3 pos, look;
         boolean arena = c.space() == UltimatePhase.Space.ARENA;
         if (arena) {
@@ -209,24 +220,34 @@ public final class UltDirector {
             look = resolveLook(s, c, t, pt, dt);
             pos = collide(s, look, pos, dt);
         } else {
-            s.sceneCam = c.pos();
             pos = c.pos();
             look = c.look();
+            if (c.follow()) { // kosucuyu takip (t - lag aninda)
+                Vec3 r = UltScene.runner(t, t - c.lag());
+                pos = pos.add(r);
+                look = look.add(r);
+            }
+            s.sceneCam = pos;
         }
         Vec3 dir = look.subtract(pos);
         float yaw = UltCamera.yawTo(dir), pitch = UltCamera.pitchTo(dir);
         float camFov = c.fov(), camRoll = c.roll();
+        if (UltimatePhase.at(t) == UltimatePhase.OCEAN) { // kompozisyon: egik ufuk, su sag-alt ~%40
+            float[] pr = oceanComposition(camFov, mc);
+            pitch = pr[0];
+            camRoll = pr[1];
+        }
         Vec3 out = arena ? pos : eye; // sahnede vanilla kamera gozde kalir (chunk'lar / ses dinleyicisi)
 
-        if (t < 4F) { // oyun kamerasindan giris
-            float u = UltCamera.Ease.IN_OUT_CUBIC.apply(t / 4F);
+        if (t < intro) { // oyun kamerasindan giris
+            float u = UltCamera.Ease.IN_OUT_CUBIC.apply(t / intro);
             out = s.snapPos.lerp(out, u);
             yaw = s.snapYaw + Mth.wrapDegrees(yaw - s.snapYaw) * u;
             pitch = Mth.lerp(u, s.snapPitch, pitch);
             camFov = Mth.lerp(u, s.snapFov, camFov);
             camRoll *= u;
-        } else if (t >= 188F) { // canli birinci sahisa donus
-            float u = UltCamera.Ease.IN_OUT_CUBIC.apply((t - 188F) / 12F);
+        } else if (t >= UltimatePhase.RECOVER.start) { // canli birinci sahisa donus
+            float u = UltCamera.Ease.IN_OUT_CUBIC.apply(UltimatePhase.RECOVER.local(t));
             out = out.lerp(eye, u);
             yaw = yaw + Mth.wrapDegrees(liveYaw - yaw) * u;
             pitch = Mth.lerp(u, pitch, livePitch);
@@ -266,15 +287,31 @@ public final class UltDirector {
         }
         roll = camRoll;
         fov = camFov;
-        return new CameraModes.Result(out.x, out.y, out.z, yaw, Mth.clamp(pitch, -90F, 90F));
+        // giris/cikista kamera goze cok yakinken govde cizilmesin (kafanin icini gormeyelim)
+        boolean detached = arena ? out.distanceToSqr(eye) > 1.8 * 1.8 : true;
+        return new CameraModes.Result(out.x, out.y, out.z, yaw, Mth.clamp(pitch, -90F, 90F), detached);
     }
 
     private static float baseTrauma(float t) {
-        if (t >= 4F && t < 22F) return 0.10F + 0.35F * (t - 4F) / 18F;
-        if (t >= 78F && t < 86F) return 0.3F;
-        if (t >= 98F && t < 108F) return 0.25F;
-        if (t >= 150F && t < 158F) return 0.4F + 0.5F * (t - 150F) / 8F;
+        if (t >= 6F && t < 30F) return 0.08F + 0.32F * (t - 6F) / 24F;
+        if (t >= 108F && t < 122F) return 0.3F;
+        if (t >= 126F && t < 140F) return 0.2F;
+        if (t >= 280F && t < 290F) return 0.4F + 0.5F * (t - 280F) / 10F;
         return 0F;
+    }
+
+    /**
+     * Okyanus kompozisyonu: ufuk sol kenarda alttan OCEAN_LEFT, sag kenarda alttan OCEAN_RIGHT oraninda. Duz bir su
+     * duzleminin ufku, pitch'e gore ekran merkezinden sabit uzakliktaki yatay bir cizgidir; roll onu merkez etrafinda
+     * dondurur. Donus: {pitch (MC, + asagi), roll}.
+     */
+    static float[] oceanComposition(float fov, Minecraft mc) {
+        float aspect = (float) mc.getWindow().getWidth() / Math.max(1, mc.getWindow().getHeight());
+        float yl = 2F * OCEAN_LEFT - 1F, yr = 2F * OCEAN_RIGHT - 1F;         // NDC y (yari yukseklik birimi)
+        double phi = Math.atan((yr - yl) / (2.0 * aspect));                    // ufkun egimi
+        double y0 = (yl + yr) * 0.5;                                           // merkezdeki yukseklik (< 0: altta)
+        double up = Math.atan(-y0 * Math.cos(phi) * Math.tan(Math.toRadians(fov) * 0.5));
+        return new float[]{(float) -Math.toDegrees(up), (float) Math.toDegrees(phi)};
     }
 
     private static Vec3 resolveLook(UltState s, UltCamera.State c, float t, float pt, float dt) {
@@ -286,7 +323,7 @@ public final class UltDirector {
             case UltCamera.LOOK_TARGET:
             case UltCamera.LOOK_MID: {
                 Vec3 tp = targetLive(s, pt);
-                if (s.springPos == null || t < 166.5F) { s.springPos = tp; s.springVel = Vec3.ZERO; }
+                if (s.springPos == null || t < UltimatePhase.LAUNCH.start + 0.5F) { s.springPos = tp; s.springVel = Vec3.ZERO; }
                 // kritik sonumlu yay (omega = 10 rad/s)
                 double w = 10.0, h = dt;
                 Vec3 x = s.springPos.subtract(tp);
@@ -331,6 +368,34 @@ public final class UltDirector {
         return p;
     }
 
+    // ---------------------------------------------------------------- firlatilan hedefin izi
+
+    /** LAUNCH boyunca hedefin her tick'teki konumu bizim iz sistemimize node olarak eklenir (UltWorldFx cizer). */
+    private static void recordTargetTrail(UltState s, float t, long now) {
+        dev.baranhan.flashmod.client.ClientSpeedsters.Entry e = s.targetTrail;
+        LivingEntity tg = s.target();
+        boolean on = s.abortAt < 0 && t >= UltimatePhase.LAUNCH_T && t < UltimatePhase.CRASH_END + 4 && tg != null && tg.isAlive();
+        if (on) {
+            Vec3 p = tg.position();
+            double dx = 0, dz = 0, dy = 0;
+            if (e.hasLast) { dx = p.x - e.lastX; dy = p.y - e.lastY; dz = p.z - e.lastZ; }
+            double dist = Math.sqrt(dx * dx + dy * dy + dz * dz), h = Math.sqrt(dx * dx + dz * dz);
+            if (h > 1.0E-3) { e.dirX = (float) (dx / h); e.dirZ = (float) (dz / h); }
+            e.odometer += dist;
+            e.lastX = p.x; e.lastY = p.y; e.lastZ = p.z;
+            e.hasLast = true;
+            e.prevSpeed = e.speed;
+            e.speed = Math.max(1F, (float) dist);
+            if (dist > 0.05) {
+                e.nodes.addFirst(new dev.baranhan.flashmod.client.ClientSpeedsters.TrailNode(p.x, p.y, p.z, -e.dirZ, 0F, e.dirX,
+                        0F, 1F, 0F, e.odometer, 1F, now, tg.getBbHeight() / 1.8F));
+            }
+        }
+        e.trailLifeOverride = 14;
+        while (e.nodes.size() > 60) e.nodes.removeLast();
+        while (!e.nodes.isEmpty() && now - e.nodes.peekLast().tick() > e.trailLife() + 1) e.nodes.removeLast();
+    }
+
     // ---------------------------------------------------------------- poz (HumanoidModelMixin -> BlitzAnim)
 
     /** Bu oyuncu bir oturumda caster ise o anki pozu out'a yazar; vanilla'ya karsi agirlik doner (0 = yok). */
@@ -342,7 +407,7 @@ public final class UltDirector {
         UltState s = forCaster(p.getId());
         if (s == null || s.abortAt >= 0) return 0F;
         float t = s.t(pt);
-        if (t < 0F || t >= 200F) return 0F;
+        if (t < 0F || t >= UltimatePhase.DURATION) return 0F;
         return UltPoses.pose(t, out, s.smallTarget());
     }
 }

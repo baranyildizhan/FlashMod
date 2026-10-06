@@ -1,0 +1,7 @@
+earth.png        - NASA Visible Earth, "Blue Marble: Next Generation w/ Topography and Bathymetry" (July 2004),
+                   Reto Stöckli, NASA Earth Observatory. https://visibleearth.nasa.gov/images/73751
+earth_clouds.png - NASA Visible Earth, "Blue Marble: Clouds" (2002). https://visibleearth.nasa.gov/images/57747
+earth_night.png  - NASA Visible Earth, "Earth's City Lights" (2000). https://visibleearth.nasa.gov/images/55167
+
+NASA imagery is not copyrighted (public domain); credit: NASA Earth Observatory / Visible Earth.
+Images were resized (2048x1024 / 1024x512) and the clouds/night images converted to grayscale.
