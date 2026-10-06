@@ -215,5 +215,14 @@
         "name": "flashmod:ult/focus"
       }
     ]
+  },
+  "ult_wind": {
+    "subtitle": "subtitles.flashmod.ult_wind",
+    "sounds": [
+      {
+        "name": "flashmod:ult/wind",
+        "stream": true
+      }
+    ]
   }
 }
