@@ -56,6 +56,8 @@ public final class FlashSounds {
     public static final RegistryObject<SoundEvent> ULT_RUN_OUT = reg("ult_run_out");
     /** Havada belirme (isinlanma citirtisi, kisa). */
     public static final RegistryObject<SoundEvent> ULT_BLINK = reg("ult_blink");
+    /** Son sahneden once tunelde Flash comelip kamera yuzune yaklasirken (eskiden ors sesi; ~1 sn, agir vurgu). */
+    public static final RegistryObject<SoundEvent> ULT_FOCUS = reg("ult_focus");
     /** Yavas cekim: hedef havada asili kalirken (~1 sn, uzayan/derinlesen ugultu). */
     public static final RegistryObject<SoundEvent> ULT_SLOWMO = reg("ult_slowmo");
 

@@ -207,5 +207,13 @@
         "name": "flashmod:ult/slowmo"
       }
     ]
+  },
+  "ult_focus": {
+    "subtitle": "subtitles.flashmod.ult_focus",
+    "sounds": [
+      {
+        "name": "flashmod:ult/focus"
+      }
+    ]
   }
 }

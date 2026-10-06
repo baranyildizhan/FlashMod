@@ -22,11 +22,11 @@ import java.util.Map;
 /**
  * Ultimate sesleri, tamamen istemcide ve goruntuyle AYNI zamandan (UltState.t) calinir: her istemci tick'inde son
  * tick'ten simdikine kadar gecilen olaylar baslatilir (atlama olmaz). Tam sinematikte sesler konumsuz (UI), izleyicilerde
- * olayin dunyadaki yerinde. Kayitli 6 ses (FlashSounds.ULT_*), kosu loop'u (TRAIL_LOOP) ve agir vuruslarda Blitz
+ * olayin dunyadaki yerinde. Kayitli 7 ses (FlashSounds.ULT_*), kosu loop'u (TRAIL_LOOP) ve agir vuruslarda Blitz
  * finalindeki vanilla katmanlar.
  */
 public final class UltSounds {
-    private static final int ACTIVATE = 0, CHARGE = 1, HIT = 2, RUN_OUT = 3, BLINK = 4, SLOWMO = 5, HEAVY = 6;
+    private static final int ACTIVATE = 0, CHARGE = 1, HIT = 2, RUN_OUT = 3, BLINK = 4, SLOWMO = 5, HEAVY = 6, FOCUS = 7;
     /** Izleyici icin olayin yeri: caster (yerde/proxy), hedef (betik), havadaki caster; NONE: sadece sinematikte. */
     private static final int AT_CASTER = 0, AT_TARGET = 1, AT_AIR = 2, NONE = -1;
 
@@ -37,6 +37,7 @@ public final class UltSounds {
             {UltimatePhase.HIT1, HIT, 1.0F, 1.0F, AT_TARGET},                 // bastaki carpma
             {UltimatePhase.HIT1 + 1, RUN_OUT, 1.0F, 1.0F, AT_CASTER},         // kosup cikis
             {UltOceanScene.DASH_T, RUN_OUT, 1.0F, 0.92F, NONE},               // okyanusta ufka firlayis
+            {274, FOCUS, 1.0F, 1.0F, NONE},                                  // tunel: comelme, kamera yuze yaklasir
             {UltimatePhase.HIT2, HEAVY, 1.0F, 1.0F, AT_TARGET},               // aparkat
             {UltimatePhase.LAUNCH_T + 2, SLOWMO, 1.0F, 1.0F, AT_TARGET},      // havada asili, yavas cekim
             {UltimatePhase.AIR_BLINK, BLINK, 1.0F, 1.0F, AT_AIR},
@@ -81,6 +82,7 @@ public final class UltSounds {
             case HIT -> FlashSounds.ULT_HIT.get();
             case RUN_OUT -> FlashSounds.ULT_RUN_OUT.get();
             case BLINK -> FlashSounds.ULT_BLINK.get();
+            case FOCUS -> FlashSounds.ULT_FOCUS.get();
             default -> FlashSounds.ULT_SLOWMO.get();
         };
         play(mc, s, ev, pos, vol, pitch);
