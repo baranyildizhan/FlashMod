@@ -1,0 +1,467 @@
+{
+  "power_on": {
+    "subtitle": "subtitles.flashmod.power_on",
+    "sounds": [
+      {
+        "name": "flashmod:power_on"
+      }
+    ]
+  },
+  "power_off": {
+    "subtitle": "subtitles.flashmod.power_off",
+    "sounds": [
+      {
+        "name": "flashmod:power_off"
+      }
+    ]
+  },
+  "run_loop": {
+    "subtitle": "subtitles.flashmod.run_loop",
+    "sounds": [
+      {
+        "name": "flashmod:run_loop"
+      }
+    ]
+  },
+  "trail_loop": {
+    "subtitle": "subtitles.flashmod.trail_loop",
+    "sounds": [
+      {
+        "name": "flashmod:trail_loop"
+      }
+    ]
+  },
+  "phase_start": {
+    "subtitle": "subtitles.flashmod.phase_start",
+    "sounds": [
+      {
+        "name": "flashmod:phase_start"
+      }
+    ]
+  },
+  "phase_loop": {
+    "subtitle": "subtitles.flashmod.phase_loop",
+    "sounds": [
+      {
+        "name": "flashmod:phase_loop"
+      }
+    ]
+  },
+  "sonic_boom": {
+    "subtitle": "subtitles.flashmod.sonic_boom",
+    "sounds": [
+      {
+        "name": "flashmod:sonic_boom"
+      }
+    ]
+  },
+  "brake": {
+    "subtitle": "subtitles.flashmod.brake",
+    "sounds": [
+      {
+        "name": "flashmod:brake"
+      }
+    ]
+  },
+  "blitz_start": {
+    "subtitle": "subtitles.flashmod.blitz_start",
+    "sounds": [
+      {
+        "name": "flashmod:blitz_start"
+      }
+    ]
+  },
+  "blitz_drone": {
+    "subtitle": "subtitles.flashmod.blitz_drone",
+    "sounds": [
+      {
+        "name": "flashmod:blitz_drone",
+        "stream": true
+      }
+    ]
+  },
+  "blitz_whoosh": {
+    "subtitle": "subtitles.flashmod.blitz_whoosh",
+    "sounds": [
+      {
+        "name": "flashmod:blitz_whoosh"
+      }
+    ]
+  },
+  "blitz_punch": {
+    "subtitle": "subtitles.flashmod.blitz_punch",
+    "sounds": [
+      {
+        "name": "flashmod:blitz_punch"
+      }
+    ]
+  },
+  "blitz_kick": {
+    "subtitle": "subtitles.flashmod.blitz_kick",
+    "sounds": [
+      {
+        "name": "flashmod:blitz_kick"
+      }
+    ]
+  },
+  "blitz_final": {
+    "subtitle": "subtitles.flashmod.blitz_final",
+    "sounds": [
+      {
+        "name": "flashmod:blitz_final"
+      }
+    ]
+  },
+  "throw_charge": {
+    "subtitle": "subtitles.flashmod.throw_charge",
+    "sounds": [
+      {
+        "name": "flashmod:throw_charge"
+      }
+    ]
+  },
+  "throw_release": {
+    "subtitle": "subtitles.flashmod.throw_release",
+    "sounds": [
+      {
+        "name": "flashmod:throw_release"
+      }
+    ]
+  },
+  "spear_impact": {
+    "subtitle": "subtitles.flashmod.spear_impact",
+    "sounds": [
+      {
+        "name": "flashmod:spear_impact"
+      }
+    ]
+  },
+  "slowmo_start": {
+    "subtitle": "subtitles.flashmod.slowmo_start",
+    "sounds": [
+      {
+        "name": "flashmod:slowmo_start"
+      }
+    ]
+  },
+  "slowmo_end": {
+    "subtitle": "subtitles.flashmod.slowmo_end",
+    "sounds": [
+      {
+        "name": "flashmod:slowmo_end"
+      }
+    ]
+  },
+  "wallrun_start": {
+    "subtitle": "subtitles.flashmod.wallrun_start",
+    "sounds": [
+      {
+        "name": "flashmod:wallrun_start"
+      }
+    ]
+  },
+  "ult_activate": {
+    "subtitle": "subtitles.flashmod.ult_activate",
+    "sounds": [
+      {
+        "name": "minecraft:block/beacon/power_select"
+      }
+    ]
+  },
+  "ult_blink": {
+    "subtitle": "subtitles.flashmod.ult_blink",
+    "sounds": [
+      {
+        "name": "minecraft:mob/phantom/swoop1"
+      }
+    ]
+  },
+  "ult_charge_loop": {
+    "subtitle": "subtitles.flashmod.ult_charge_loop",
+    "sounds": [
+      {
+        "name": "minecraft:block/beacon/ambient"
+      }
+    ]
+  },
+  "ult_roar_crackle": {
+    "subtitle": "subtitles.flashmod.ult_roar_crackle",
+    "sounds": [
+      {
+        "name": "minecraft:item/trident/thunder1"
+      }
+    ]
+  },
+  "ult_charge_peak": {
+    "subtitle": "subtitles.flashmod.ult_charge_peak",
+    "sounds": [
+      {
+        "name": "minecraft:block/respawn_anchor/charge1"
+      }
+    ]
+  },
+  "ult_whoosh_depart": {
+    "subtitle": "subtitles.flashmod.ult_whoosh_depart",
+    "sounds": [
+      {
+        "name": "minecraft:mob/phantom/swoop2"
+      }
+    ]
+  },
+  "ult_hit_light": {
+    "subtitle": "subtitles.flashmod.ult_hit_light",
+    "sounds": [
+      {
+        "name": "minecraft:entity/player/attack/strong1"
+      }
+    ]
+  },
+  "ult_sonic_boom": {
+    "subtitle": "subtitles.flashmod.ult_sonic_boom",
+    "sounds": [
+      {
+        "name": "minecraft:mob/warden/sonic_boom1"
+      }
+    ]
+  },
+  "ult_flash_swell": {
+    "subtitle": "subtitles.flashmod.ult_flash_swell",
+    "sounds": [
+      {
+        "name": "minecraft:block/beacon/activate"
+      }
+    ]
+  },
+  "ult_void_ambience": {
+    "subtitle": "subtitles.flashmod.ult_void_ambience",
+    "sounds": [
+      {
+        "name": "minecraft:block/conduit/ambient"
+      }
+    ]
+  },
+  "ult_heartbeat": {
+    "subtitle": "subtitles.flashmod.ult_heartbeat",
+    "sounds": [
+      {
+        "name": "minecraft:mob/warden/heartbeat_1"
+      }
+    ]
+  },
+  "ult_pushoff": {
+    "subtitle": "subtitles.flashmod.ult_pushoff",
+    "sounds": [
+      {
+        "name": "minecraft:step/stone1"
+      }
+    ]
+  },
+  "ult_footsteps_ramp": {
+    "subtitle": "subtitles.flashmod.ult_footsteps_ramp",
+    "sounds": [
+      {
+        "name": "minecraft:step/stone2"
+      }
+    ]
+  },
+  "ult_speed_ramp": {
+    "subtitle": "subtitles.flashmod.ult_speed_ramp",
+    "sounds": [
+      {
+        "name": "minecraft:mob/warden/sonic_charge1"
+      }
+    ]
+  },
+  "ult_boom": {
+    "subtitle": "subtitles.flashmod.ult_boom",
+    "sounds": [
+      {
+        "name": "minecraft:mob/warden/sonic_boom2"
+      }
+    ]
+  },
+  "ult_high_wind": {
+    "subtitle": "subtitles.flashmod.ult_high_wind",
+    "sounds": [
+      {
+        "name": "minecraft:item/elytra/elytra_loop"
+      }
+    ]
+  },
+  "ult_pass_under": {
+    "subtitle": "subtitles.flashmod.ult_pass_under",
+    "sounds": [
+      {
+        "name": "minecraft:mob/enderdragon/wings1"
+      }
+    ]
+  },
+  "ult_ocean_tear": {
+    "subtitle": "subtitles.flashmod.ult_ocean_tear",
+    "sounds": [
+      {
+        "name": "minecraft:liquid/splash"
+      }
+    ]
+  },
+  "ult_spray_wash": {
+    "subtitle": "subtitles.flashmod.ult_spray_wash",
+    "sounds": [
+      {
+        "name": "minecraft:liquid/splash2"
+      }
+    ]
+  },
+  "ult_ascend": {
+    "subtitle": "subtitles.flashmod.ult_ascend",
+    "sounds": [
+      {
+        "name": "minecraft:item/trident/riptide1"
+      }
+    ]
+  },
+  "ult_space_hum": {
+    "subtitle": "subtitles.flashmod.ult_space_hum",
+    "sounds": [
+      {
+        "name": "minecraft:block/beacon/ambient"
+      }
+    ]
+  },
+  "ult_orbit_streak": {
+    "subtitle": "subtitles.flashmod.ult_orbit_streak",
+    "sounds": [
+      {
+        "name": "minecraft:block/amethyst/shimmer1"
+      }
+    ]
+  },
+  "ult_return_swell": {
+    "subtitle": "subtitles.flashmod.ult_return_swell",
+    "sounds": [
+      {
+        "name": "minecraft:item/trident/riptide3"
+      }
+    ]
+  },
+  "ult_tunnel_rush": {
+    "subtitle": "subtitles.flashmod.ult_tunnel_rush",
+    "sounds": [
+      {
+        "name": "minecraft:item/trident/riptide2"
+      }
+    ]
+  },
+  "ult_land_heavy": {
+    "subtitle": "subtitles.flashmod.ult_land_heavy",
+    "sounds": [
+      {
+        "name": "minecraft:random/anvil_land"
+      }
+    ]
+  },
+  "ult_eyes_ignite": {
+    "subtitle": "subtitles.flashmod.ult_eyes_ignite",
+    "sounds": [
+      {
+        "name": "minecraft:fire/ignite"
+      }
+    ]
+  },
+  "ult_charge_final": {
+    "subtitle": "subtitles.flashmod.ult_charge_final",
+    "sounds": [
+      {
+        "name": "minecraft:mob/warden/sonic_charge2"
+      }
+    ]
+  },
+  "ult_inhale_crack": {
+    "subtitle": "subtitles.flashmod.ult_inhale_crack",
+    "sounds": [
+      {
+        "name": "minecraft:random/fizz"
+      }
+    ]
+  },
+  "ult_impact_huge": {
+    "subtitle": "subtitles.flashmod.ult_impact_huge",
+    "sounds": [
+      {
+        "name": "minecraft:random/explode1"
+      }
+    ]
+  },
+  "ult_impact_sub": {
+    "subtitle": "subtitles.flashmod.ult_impact_sub",
+    "sounds": [
+      {
+        "name": "minecraft:ambient/weather/thunder1"
+      }
+    ]
+  },
+  "ult_hitstop_ring": {
+    "subtitle": "subtitles.flashmod.ult_hitstop_ring",
+    "sounds": [
+      {
+        "name": "minecraft:block/amethyst/shimmer2"
+      }
+    ]
+  },
+  "ult_release_whoosh": {
+    "subtitle": "subtitles.flashmod.ult_release_whoosh",
+    "sounds": [
+      {
+        "name": "minecraft:mob/phantom/swoop3"
+      }
+    ]
+  },
+  "ult_launch_wind": {
+    "subtitle": "subtitles.flashmod.ult_launch_wind",
+    "sounds": [
+      {
+        "name": "minecraft:mob/enderdragon/wings2"
+      }
+    ]
+  },
+  "ult_crash": {
+    "subtitle": "subtitles.flashmod.ult_crash",
+    "sounds": [
+      {
+        "name": "minecraft:random/explode2"
+      }
+    ]
+  },
+  "ult_debris": {
+    "subtitle": "subtitles.flashmod.ult_debris",
+    "sounds": [
+      {
+        "name": "minecraft:dig/stone1"
+      }
+    ]
+  },
+  "ult_thunder_tail": {
+    "subtitle": "subtitles.flashmod.ult_thunder_tail",
+    "sounds": [
+      {
+        "name": "minecraft:ambient/weather/thunder2"
+      }
+    ]
+  },
+  "ult_resolve": {
+    "subtitle": "subtitles.flashmod.ult_resolve",
+    "sounds": [
+      {
+        "name": "minecraft:block/beacon/deactivate"
+      }
+    ]
+  },
+  "ult_orbit_world": {
+    "subtitle": "subtitles.flashmod.ult_orbit_world",
+    "sounds": [
+      {
+        "name": "minecraft:block/conduit/ambient"
+      }
+    ]
+  }
+}

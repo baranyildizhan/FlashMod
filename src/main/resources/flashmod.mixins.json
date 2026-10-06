@@ -1,0 +1,29 @@
+{
+  "required": true,
+  "minVersion": "0.8",
+  "package": "dev.baranhan.flashmod.mixin",
+  "compatibilityLevel": "JAVA_8",
+  "refmap": "flashmod.refmap.json",
+  "mixins": [
+    "EntityMixin",
+    "MinecraftServerMixin",
+    "PlayerMixin",
+    "PlayerTravelMixin",
+    "ProjectileMixin"
+  ],
+  "client": [
+    "AbstractClientPlayerMixin",
+    "CameraMixin",
+    "EntityRenderDispatcherMixin",
+    "HumanoidModelMixin",
+    "LivingEntityRendererMixin",
+    "LocalPlayerMixin",
+    "TimerMixin"
+  ],
+  "injectors": {
+    "defaultRequire": 1
+  },
+  "overwrites": {
+    "requireAnnotations": true
+  }
+}

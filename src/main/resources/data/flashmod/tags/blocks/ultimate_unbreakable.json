@@ -1,0 +1,9 @@
+{
+  "replace": false,
+  "values": [
+    "minecraft:bedrock", "minecraft:obsidian", "minecraft:crying_obsidian", "minecraft:reinforced_deepslate",
+    "minecraft:end_portal_frame", "minecraft:barrier", "minecraft:command_block", "minecraft:chain_command_block",
+    "minecraft:repeating_command_block", "minecraft:structure_block", "minecraft:jigsaw", "minecraft:respawn_anchor",
+    "minecraft:end_gateway", "minecraft:end_portal", "minecraft:nether_portal"
+  ]
+}
