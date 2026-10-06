@@ -17,13 +17,17 @@ public final class UltTextures {
     public static final ResourceLocation CLOUD = id("cloud"), STREAK = id("streak"), FOAM_V = id("foam_v"),
             FOAM = id("foam"), CAPS = id("caps"), SKY = id("sky"), TUNNEL = id("tunnel"), GLOW = id("glow"),
             EARTH = id("earth"), EARTH_CLOUDS = id("earth_clouds"), EARTH_NIGHT = id("earth_night"),
-            RIPPLE = id("ripple"), GLITTER = id("glitter");
+            RIPPLE = id("ripple"), GLITTER = id("glitter"), SPRAY = id("spray");
     private static boolean ready;
 
     private UltTextures() {}
 
     private static ResourceLocation id(String n) {
         return new ResourceLocation(FlashMod.MODID, "ult_" + n);
+    }
+
+    public static boolean ready() {
+        return ready;
     }
 
     public static void ensure() {
@@ -85,6 +89,22 @@ public final class UltTextures {
             float hv = hash(x, y, 121), hv2 = hash(x / 2, y / 2, 131);
             float a = hv > 0.992F ? 1F : (hv2 > 0.985F ? 0.45F : 0F);
             return gray(1F, a);
+        });
+        reg(SPRAY, 128, 128, (x, y, w, h) -> { // V su perdesi: dikey su lifleri, yirtik tepe, tepede damlacik serpintisi
+            float nx = x / (float) w, ny = y / (float) h;                      // ny = 0 tepe, 1 dip
+            float edge = 0.08F + 0.42F * fbm(nx * 5F, 0.37F, 3, 5, 141);       // her sutunda farkli tepe
+            float fib = fbm(nx * 22F, ny * 2.2F, 4, 22, 151);                  // dikey lifler
+            float fine = fbm(nx * 48F, ny * 6F, 2, 48, 161);
+            float body = Mth.clamp((fib - 0.3F) * 2.1F, 0F, 1F) * (0.75F + 0.25F * fine);
+            float a;
+            if (ny >= edge) {
+                float in = Mth.clamp((ny - edge) / 0.18F, 0F, 1F);
+                a = (0.45F + 0.55F * body) * (0.35F + 0.65F * in) * (0.75F + 0.25F * ny);
+            } else {                                                            // tepenin ustu: seyrek damlalar
+                float hv = hash(x, y, 171);
+                a = hv > 0.965F ? 0.85F * (ny / Math.max(0.01F, edge)) : 0F;
+            }
+            return gray(0.82F + 0.18F * body, Mth.clamp(a, 0F, 1F));
         });
         loadMip(EARTH, "earth", false);
         loadMip(EARTH_CLOUDS, "earth_clouds", true);

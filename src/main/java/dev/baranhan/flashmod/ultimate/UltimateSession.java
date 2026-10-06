@@ -32,6 +32,9 @@ public final class UltimateSession {
     public Vec3 freezePos;
     /** Ilk vurusta hedefin ileri kayma mesafesi (blok, carpismaya gore). */
     public float push;
+    /** Final ucus olcegi (engellere gore) ve final geometrisi (UltimateScript). */
+    public float fly = 1F;
+    public UltimateScript.Path path;
     public boolean hadNoAi, mob;
     public long debrisAt = -1;
     public Vec3 debrisPos;

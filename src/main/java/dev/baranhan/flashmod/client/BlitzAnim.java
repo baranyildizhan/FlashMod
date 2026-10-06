@@ -356,6 +356,11 @@ public final class BlitzAnim {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) return;
         float pt = mc.getFrameTime();
+        float tw = dev.baranhan.flashmod.client.ultimate.UltDirector.targetPoseFor(entity, pt, ULT_POSE);
+        if (tw > 0F) { // ultimate hedefi (insansi): firlatilma / cakilma uzuv pozu; kok donusu UltRender'da
+            dev.baranhan.flashmod.client.ultimate.UltPoses.apply(model, ULT_POSE, tw);
+            return;
+        }
         if (entity instanceof Player pl) {
             float uw = dev.baranhan.flashmod.client.ultimate.UltDirector.poseFor(pl, pt, ULT_POSE);
             if (uw > 0F) { // ultimate pozu (uzuvlar); kok donusumu UltRender'da

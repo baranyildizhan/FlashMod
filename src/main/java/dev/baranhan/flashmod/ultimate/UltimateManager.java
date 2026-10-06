@@ -128,6 +128,8 @@ public final class UltimateManager {
         UltimateSession s = new UltimateSession(nextId++, caster.getUUID(), target.getId(), target.getUUID(), level.dimension(),
                 arena, now + 2, scale, level.getRandom().nextLong(), caster.position(), debug);
         s.push = push;
+        s.fly = UltimateScript.flyScale(target, fx, fz, push);
+        s.path = new UltimateScript.Path(push, s.fly, target.getBbHeight());
         s.lockPos = origin;
         s.lockYaw = arena.forwardYaw();
         s.lastTargetPos = tp;
@@ -164,23 +166,24 @@ public final class UltimateManager {
             boolean isTarget = pl == tPlayer;
             boolean full = pl == caster || (isTarget && FlashServerConfig.ULT_TARGET_SEES.get());
             FlashNetwork.sendTo(pl, new UltimateStartPacket(s.id, caster.getId(), s.targetId, s.startGameTime, s.scale,
-                    s.arena, s.startPos.x, s.startPos.y, s.startPos.z, core, glow, s.seed, isTarget, full, false, s.push));
+                    s.arena, s.startPos.x, s.startPos.y, s.startPos.z, core, glow, s.seed, isTarget, full, false, s.push, s.fly));
         }
     }
 
     /** /flashult preview: sunucuda hicbir sey olmadan, sadece o istemcide gorsel onizleme. */
     public static void preview(ServerPlayer p, @Nullable LivingEntity target) {
         double fx = -Math.sin(Math.toRadians(p.getYRot())), fz = Math.cos(Math.toRadians(p.getYRot()));
-        float d = UltimatePhase.ARENA_DISTANCE, push = 0F;
+        float d = UltimatePhase.ARENA_DISTANCE, push = 0F, fly = 1F;
         if (target != null) { // hedef varsa arena gercek konumlara hizalanir (onizleme ile gercek kullanim ayni gorunsun)
             double dx = target.getX() - p.getX(), dz = target.getZ() - p.getZ(), l = Math.sqrt(dx * dx + dz * dz);
             if (l > 0.5) { fx = dx / l; fz = dz / l; d = (float) l; }
             push = pushDistance(target, fx, fz, !target.onGround());
+            fly = UltimateScript.flyScale(target, fx, fz, push);
         }
         ArenaFrame arena = new ArenaFrame(p.getX(), p.getY(), p.getZ(), fx, fz, d);
         FlashNetwork.sendTo(p, new UltimateStartPacket(-(nextId++), p.getId(), target == null ? -1 : target.getId(),
                 p.level().getGameTime() + 2, 1F, arena, p.getX(), p.getY(), p.getZ(), SpeedsterData.getCore(p),
-                SpeedsterData.getGlow(p), p.getRandom().nextLong(), false, true, true, push));
+                SpeedsterData.getGlow(p), p.getRandom().nextLong(), false, true, true, push, fly));
     }
 
     /**
@@ -244,7 +247,7 @@ public final class UltimateManager {
         }
         if (t >= UltimatePhase.CASTER_LAND && !s.landed) { // havadaki yumruktan sonra hedefin arkasina iner
             s.landed = true;
-            Vec3 l = s.freezePos.add(UltimateScript.casterOffset(s.arena.fx, s.arena.fz, s.push, UltimatePhase.CASTER_LAND));
+            Vec3 l = s.freezePos.add(s.path.casterOffset(s.arena.fx, s.arena.fz, UltimatePhase.CASTER_LAND));
             Vec3 stand = findStand(caster, l, false);
             if (stand != null) {
                 s.lockPos = stand;
@@ -260,9 +263,9 @@ public final class UltimateManager {
         // stasis
         if (s.stasis && target != null) {
             target.setDeltaMovement(Vec3.ZERO);
-            // betik: ilk vurusta ileri kayma, ikinci vurustan sonra havaya kalkis, asili kalma, cakilma
+            // betik: ilk vurusta ileri kayma, aparkatla yukari-ileri ucus, asili kalma, ayni dogru boyunca geri cakilma
             // (istemci ayni egrileri yumusak cizer)
-            Vec3 want = s.freezePos.add(UltimateScript.targetOffset(s.arena.fx, s.arena.fz, s.push, t));
+            Vec3 want = s.freezePos.add(s.path.targetOffset(s.arena.fx, s.arena.fz, t));
             if (target.position().distanceToSqr(want) > 0.05D * 0.05D) {
                 if (target instanceof ServerPlayer sp) sp.connection.teleport(want.x, want.y, want.z, sp.getYRot(), sp.getXRot());
                 else target.setPos(want.x, want.y, want.z);
@@ -297,13 +300,11 @@ public final class UltimateManager {
                 target.hurt(UltimateDamage.source(level, caster), FlashServerConfig.ULT_HIT3.get().floatValue());
             }
         }
-        if (t >= UltimatePhase.SLAM_T && !s.launched) { // yere carpma: patlama, stasis biter
+        if (t >= UltimatePhase.SLAM_T && !s.launched) { // yere carpma: patlama (hedef yattigi yerde stasis'te kalir)
             s.launched = true;
-            if (target != null) {
-                endStasis(s, target);
-                if (target.isAlive()) crash(level, caster, s, target, true);
-            }
+            if (target != null && target.isAlive()) crash(level, caster, s, target, true);
         }
+        if (t >= UltimatePhase.TARGET_FREE && s.stasis) endStasis(s, target); // kalkti
 
         // konumlu sesler
         for (int i = 0; i < SOUNDS.length; i++) {

@@ -15,10 +15,10 @@ public enum UltimatePhase {
     OCEAN(122, 182, Space.SCENE),
     ORBIT(182, 262, Space.SCENE),
     TUNNEL(262, 290, Space.SCENE),
-    IMPACT(290, 298, Space.ARENA),
-    /** Hedef yavas cekimde havaya yukselir ve asili kalir. */
-    LAUNCH(298, 310, Space.ARENA),
-    /** Flash hedefin arkasinda/ustunde belirir, yumruk, hedef yere cakilir. */
+    IMPACT(290, 294, Space.ARENA),
+    /** Aparkatla hedef yukari-ileri ucar, yavas cekimde asili kalir. */
+    LAUNCH(294, 310, Space.ARENA),
+    /** Flash hedefin arkasinda (ucus dogrusunun uzantisinda) belirir, yumrukla ayni dogru boyunca geri yere cakar. */
     AIR(310, 327, Space.ARENA),
     /** Yere carpma simsek patlamasi, Flash'in inisi. */
     SLAM(327, 340, Space.ARENA),
@@ -39,9 +39,9 @@ public enum UltimatePhase {
     public static final int RETURN_TP = 289;
     public static final int HIT2 = 290;
     public static final int HITSTOP_END = 294;
-    /** Hedef havaya kalkar (sunucu ve istemci ayni betikle: UltimateScript). */
+    /** Hedef yukari-ileri ucar (sunucu ve istemci ayni betikle: UltimateScript). */
     public static final int LAUNCH_T = 294;
-    /** Flash havada, hedefin arkasinda/ustunde belirir. */
+    /** Flash havada, hedefin arkasinda belirir. */
     public static final int AIR_BLINK = 310;
     /** Havadaki yumruk; HITSTOP3_END'e kadar donma, sonra hedef yere cakilir. */
     public static final int HIT3 = 318;
@@ -50,6 +50,8 @@ public enum UltimatePhase {
     public static final int SLAM_T = 327;
     /** Flash yere iner. */
     public static final int CASTER_LAND = 332;
+    /** Yerde yatan hedef kalkar; stasis biter. */
+    public static final int TARGET_FREE = 346;
     public static final float HITSTOP_FREEZE = 291F, HITSTOP3_FREEZE = 319F;
     /** Arena: caster -> hedef mesafesi (varsayilan). */
     public static final float ARENA_DISTANCE = 2.5F;

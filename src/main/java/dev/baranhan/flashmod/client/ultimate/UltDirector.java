@@ -37,6 +37,8 @@ public final class UltDirector {
     private static final float[] SHAKE_EVENTS = {22, 0.2F, UltimatePhase.HIT1, 0.5F, 53, 0.3F, 86, 0.25F, 112, 0.55F,
             126, 0.4F, 230, 0.2F, 272, 0.35F, UltimatePhase.HIT2, 1.0F, UltimatePhase.LAUNCH_T, 0.4F,
             UltimatePhase.AIR_BLINK, 0.25F, UltimatePhase.HIT3, 0.8F, UltimatePhase.SLAM_T, 1.0F, UltimatePhase.CASTER_LAND, 0.3F};
+    /** Oyun kamerasindan sinematik kameraya harman suresi (tick). */
+    private static final float INTRO = 12F;
     /** Okyanus kompozisyonu: ufuk ekranin sol kenarinda alttan %6, sag kenarinda alttan %78 yukseklikte (su ~%42). */
     private static final float OCEAN_LEFT = 0.06F, OCEAN_RIGHT = 0.78F;
 
@@ -94,7 +96,11 @@ public final class UltDirector {
     }
 
     public static void clear() {
-        for (UltState s : SESSIONS.values()) UltSounds.stopAll(s);
+        for (UltState s : SESSIONS.values()) {
+            UltSounds.stopAll(s);
+            LivingEntity tg = s.target();
+            if (tg != null) tg.noCulling = false;
+        }
         SESSIONS.clear();
         stasisLocal = false;
         BlitzLock.ultimateLocked = false;
@@ -106,18 +112,27 @@ public final class UltDirector {
     public static void clientTick() {
         Minecraft mc = Minecraft.getInstance();
         if (mc.level == null) { if (!SESSIONS.isEmpty()) clear(); return; }
+        if (!UltTextures.ready()) UltTextures.ensure(); // dunyaya girerken: ultimate sirasinda yukleme takilmasi olmasin
         UltDebug.tick();
+        boolean paused = mc.isPaused();
         Iterator<UltState> it = SESSIONS.values().iterator();
         while (it.hasNext()) {
             UltState s = it.next();
-            if (s.preview && !s.paused) s.previewT += 1F;
+            if (!paused) {
+                if (s.preview) { if (!s.paused) s.previewT += 1F; }
+                else s.advanceClock(mc.level.getGameTime());
+            }
             float t = s.t(0F);
             boolean aborted = s.abortAt >= 0 && mc.level.getGameTime() - s.abortAt > 10;
+            LivingEntity tg = s.target();
             if (t > UltimatePhase.DURATION + (s.preview ? 5F : 30F) || aborted || (!s.preview && s.caster() == null && t > 4F)) {
+                if (tg != null) tg.noCulling = false;
                 UltSounds.stopAll(s);
                 it.remove();
                 continue;
             }
+            // hedef betikteki yerde (havada) cizilir; gercek kutusu kadraj disinda kalsa da gorunsun
+            if (tg != null) tg.noCulling = t < UltimatePhase.TARGET_FREE + 2F;
             if (s.abortAt < 0) UltSounds.tick(s, s.lastTickT, t);
             s.lastTickT = t;
             recordTargetTrail(s, t, mc.level.getGameTime());
@@ -210,8 +225,7 @@ public final class UltDirector {
             s.snapFov = liveFov;
         }
 
-        float intro = UltimatePhase.WINDUP.start;
-        UltCamera.State c = UltCamera.evaluate(s.tracks, Math.max(t, intro));
+        UltCamera.State c = UltCamera.evaluate(s.tracks, t);
         Vec3 pos, look;
         boolean arena = c.space() == UltimatePhase.Space.ARENA;
         if (arena) {
@@ -238,9 +252,9 @@ public final class UltDirector {
         }
         Vec3 out = arena ? pos : eye; // sahnede vanilla kamera gozde kalir (chunk'lar / ses dinleyicisi)
 
-        if (t < intro) { // oyun kamerasindan giris
-            float u = UltCamera.Ease.IN_OUT_CUBIC.apply(t / intro);
-            out = s.snapPos.lerp(out, u);
+        if (t < INTRO) { // oyun kamerasindan giris: Flash'in etrafinda yay cizerek (kafanin icinden gecmez, ani savrulma yok)
+            float u = UltCamera.Ease.IN_OUT_CUBIC.apply(t / INTRO);
+            out = orbitIntro(s, out, u);
             yaw = s.snapYaw + Mth.wrapDegrees(yaw - s.snapYaw) * u;
             pitch = Mth.lerp(u, s.snapPitch, pitch);
             camFov = Mth.lerp(u, s.snapFov, camFov);
@@ -263,7 +277,8 @@ public final class UltDirector {
         float tr = Math.max(baseTrauma(t), s.trauma);
         float amp = tr * tr * FlashClientConfig.ULT_SHAKE.get().floatValue();
         if (amp > 0F) {
-            float x = (nanos / 1.0E9F) * 22F;
+            // oturum zamanindan (float'a cevrilmis nanoTime uzun sure acik bilgisayarda kademeli artar: sarsinti takilir)
+            float x = t * 0.8F;
             yaw += 3.5F * amp * UltCamera.noise(x + (s.seed & 31));
             pitch += 2.5F * amp * UltCamera.noise(x * 1.13F + 17.3F);
             camRoll += 4.5F * amp * UltCamera.noise(x * 0.87F + 41.9F);
@@ -291,8 +306,25 @@ public final class UltDirector {
         return new CameraModes.Result(out.x, out.y, out.z, yaw, Mth.clamp(pitch, -90F, 90F), detached);
     }
 
+    /**
+     * Giris yolu: oyuncunun gozunden tablodaki (hareketli) kamera konumuna, Flash'in basi etrafinda kutupsal
+     * aradegerleme (aci, yaricap, yukseklik). Goz basin hemen ustundeyse once arkaya acilir.
+     */
+    private static Vec3 orbitIntro(UltState s, Vec3 target, float u) {
+        Vec3 pivot = s.arena.toWorld(0D, 1.3D, 0D);
+        Vec3 a0 = s.snapPos.subtract(pivot), a1 = target.subtract(pivot);
+        double r0 = Math.sqrt(a0.x * a0.x + a0.z * a0.z), r1 = Math.sqrt(a1.x * a1.x + a1.z * a1.z);
+        double th0 = r0 < 0.35 ? Math.atan2(-s.arena.fx, -s.arena.fz) : Math.atan2(a0.x, a0.z);
+        double th1 = Math.atan2(a1.x, a1.z);
+        double dth = Mth.wrapDegrees(Math.toDegrees(th1 - th0));
+        // yay ortada genisler ve yukselir: acilis patlamasini icinden degil disaridan gorur
+        double bulge = Math.sin(Math.PI * u);
+        double th = th0 + Math.toRadians(dth) * u, r = Mth.lerp(u, r0, r1) + 1.4 * bulge, y = Mth.lerp(u, a0.y, a1.y) + 0.5 * bulge;
+        return pivot.add(Math.sin(th) * r, y, Math.cos(th) * r);
+    }
+
     private static float baseTrauma(float t) {
-        if (t >= 6F && t < 30F) return 0.08F + 0.32F * (t - 6F) / 24F;
+        if (t >= 6F && t < 30F) return 0.05F + 0.2F * (t - 6F) / 24F;
         if (t >= 108F && t < 122F) return 0.3F;
         if (t >= 126F && t < 140F) return 0.2F;
         if (t >= 280F && t < 290F) return 0.4F + 0.5F * (t - 280F) / 10F;
@@ -319,24 +351,33 @@ public final class UltDirector {
                 Vec3 off = c.look();
                 return s.contact().add(s.arena.rx() * off.x + s.arena.fx * off.z, off.y, s.arena.rz() * off.x + s.arena.fz * off.z);
             }
-            case UltCamera.LOOK_TARGET:
+            case UltCamera.LOOK_TARGET: { // betikteki hedef (kisa pencere ortalamasi: ani hiz degisimleri yumusar)
+                Vec3 acc = Vec3.ZERO;
+                for (int i = 0; i < 5; i++) acc = acc.add(s.targetScripted(Math.min(t - i * 0.5F, UltimatePhase.SLAM_T)));
+                return offset(s, acc.scale(0.2).add(0, s.targetH * 0.5, 0), c.look());
+            }
             case UltCamera.LOOK_MID: {
                 Vec3 tp = targetLive(s, pt);
-                if (s.springPos == null || t < UltimatePhase.LAUNCH.start + 0.5F) { s.springPos = tp; s.springVel = Vec3.ZERO; }
+                if (s.springPos == null || t < UltimatePhase.LAUNCH_T + 0.5F) { s.springPos = tp; s.springVel = Vec3.ZERO; }
                 // kritik sonumlu yay (omega = 10 rad/s)
                 double w = 10.0, h = dt;
                 Vec3 x = s.springPos.subtract(tp);
                 Vec3 a = x.scale(-w * w).subtract(s.springVel.scale(2 * w));
                 s.springVel = s.springVel.add(a.scale(h));
                 s.springPos = s.springPos.add(s.springVel.scale(h));
-                if (c.lookMode() == UltCamera.LOOK_TARGET) return s.springPos;
                 Player caster = s.caster();
-                Vec3 cp = caster != null ? caster.getPosition(pt).add(0, 1.2, 0) : s.arena.toWorld(0, 1.2, 0);
-                return cp.lerp(s.springPos, 0.5);
+                Vec3 cp = caster != null ? UltRender.casterWorld(s, caster, t, pt, new float[1]).add(0, 1.2, 0)
+                        : s.arena.toWorld(0, 1.2, 0);
+                return offset(s, cp.lerp(s.springPos, 0.5), c.look());
             }
             default:
                 return s.arena.toWorld(c.look());
         }
+    }
+
+    /** Arena eksenlerinde verilen ofseti (sag, yukari, ileri) dunya noktasina ekler. */
+    private static Vec3 offset(UltState s, Vec3 p, Vec3 off) {
+        return p.add(s.arena.rx() * off.x + s.arena.fx * off.z, off.y, s.arena.rz() * off.x + s.arena.fz * off.z);
     }
 
     public static Vec3 targetLive(UltState s, float pt) {
@@ -400,6 +441,13 @@ public final class UltDirector {
     }
 
     // ---------------------------------------------------------------- poz (HumanoidModelMixin -> BlitzAnim)
+
+    /** Bu varlik bir oturumun hedefiyse uzuv pozunu out'a yazar; agirlik doner (0 = yok). */
+    public static float targetPoseFor(LivingEntity e, float pt, float[] out) {
+        UltState s = forTarget(e.getId());
+        if (s == null || s.abortAt >= 0) return 0F;
+        return UltPoses.targetPose(s.t(pt), out);
+    }
 
     /** Bu oyuncu bir oturumda caster ise o anki pozu out'a yazar; vanilla'ya karsi agirlik doner (0 = yok). */
     public static float poseFor(Player p, float pt, float[] out) {

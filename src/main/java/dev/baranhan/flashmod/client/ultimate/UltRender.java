@@ -82,12 +82,22 @@ public final class UltRender {
             yawOut[0] = dw.lengthSqr() > 1.0E-8 ? UltCamera.yawTo(dw) : s.arena.forwardYaw();
             return s.arena.toWorld(a);
         }
-        if (t >= UltimatePhase.AIR_BLINK) { // havada hedefin arkasinda/ustunde, sonra hedefin arkasina inis (hedefe doner)
+        if (t >= UltimatePhase.RETURN_TP && t < UltimatePhase.AIR_BLINK) { // tunelden donus: hedefin onunde (sunucu da buraya tasir)
+            yawOut[0] = s.arena.forwardYaw();
+            return returnSpot(s, p.getPosition(pt).y);
+        }
+        if (t >= UltimatePhase.AIR_BLINK) { // havada hedefin arkasinda (ucus dogrusu uzantisi), sonra krater yanina inis
             yawOut[0] = s.arena.forwardYaw() + 180F;
             return s.casterAir(t);
         }
         yawOut[0] = s.arena.forwardYaw();
         return p.getPosition(pt);
+    }
+
+    /** Tunelden donuste caster'in durdugu yer (sunucudaki RETURN_TP ile ayni; y caster'in gercek yuksekligi). */
+    public static Vec3 returnSpot(UltState s, double y) {
+        Vec3 r = s.arena.toWorld(-0.15D, 0D, s.arena.d + s.push - 1.1D);
+        return new Vec3(r.x, y, r.z);
     }
 
     // ---------------------------------------------------------------- caster
@@ -190,8 +200,10 @@ public final class UltRender {
     // ---------------------------------------------------------------- hedef
 
     /**
-     * Hedef: ilk vurusta ileri kayma (sunucu da ayni egriyle tasir; burada ag gecikmesini ve onizlemeyi yumusak
-     * gostermek icin cizim konumu istenen konuma cekilir) + geriye savrulma; ikinci vurusta darbe pozu.
+     * Hedef: cizim konumu betikteki yere cekilir (sunucu da ayni yere tasir; burada ag gecikmesi ve onizleme yumusak
+     * gorunur). Ilk vuruta kisa savrulma; aparkatla geriye devrilerek yukari-ileri ucus, yavas cekimde ters takla,
+     * sirttan yumrukla kirilma, sirtustu yere cakilma, sekme, sonra kalkis. Donusler arena sag ekseni (egilme) ve
+     * ileri ekseni (yuvarlanma) etrafinda; finalde pivot govde ortasi.
      */
     @SubscribeEvent
     public static void onLivingPre(RenderLivingEvent.Pre<?, ?> event) {
@@ -200,45 +212,96 @@ public final class UltRender {
         if (s == null || s.abortAt >= 0) return;
         float pt = event.getPartialTick();
         float t = s.t(pt);
+        if (t >= UltimatePhase.TARGET_FREE) return;
+        float vt = UltimatePhase.visual(t);
         double ox = 0, oy = 0, oz = 0;
-        if (UltimateScript.targetScripted(t)) { // betikteki yere cek (sunucu da ayni yere tasir; gecikme/onizleme yumusak)
+        if (UltimateScript.targetScripted(t)) {
             Vec3 want = s.targetScripted(t), r = ent.getPosition(pt);
             ox = want.x - r.x;
             oy = want.y - r.y;
             oz = want.z - r.z;
-            double l = Math.sqrt(ox * ox + oy * oy + oz * oz), max = UltimateScript.RISE + 4.0;
+            double l = Math.sqrt(ox * ox + oy * oy + oz * oz), max = 14.0;
             if (l > max) { ox *= max / l; oy *= max / l; oz *= max / l; }
         }
-        float k = 1F, lean;
-        if (t >= UltimatePhase.HIT1 && t < UltimatePhase.PUSH_END + 2F) { // ilk vurus: kisa savrulma
-            float u = t - UltimatePhase.HIT1;
-            k = u < 1.5F ? u / 1.5F : Math.max(0F, 1F - (u - 1.5F) / (UltimatePhase.PUSH_END + 2F - UltimatePhase.HIT1 - 1.5F));
-            lean = -18F;
-        } else if (t >= UltimatePhase.HIT2 && t < UltimatePhase.LAUNCH_T) { // darbe
-            lean = -15F * Math.min(1F, (t - UltimatePhase.HIT2) / 0.6F);
-        } else if (t >= UltimatePhase.LAUNCH_T && t < UltimatePhase.HIT3) { // havaya kalkarken geriye kavis, asiliyken hafif salinim
-            float u = Mth.clamp((t - UltimatePhase.LAUNCH_T) / 8F, 0F, 1F);
-            lean = Mth.lerp(u * u * (3F - 2F * u), -15F, -42F) + 3F * Mth.sin((t - UltimatePhase.LAUNCH_T) * 0.25F) * u;
-        } else if (t >= UltimatePhase.HIT3 && t < UltimatePhase.SLAM_T) { // yumruk sirttan: one katlanarak cakilir
-            float u = Mth.clamp((t - UltimatePhase.HIT3) / 1.2F, 0F, 1F);
-            lean = Mth.lerp(u, -42F, 32F);
-        } else if (t >= UltimatePhase.SLAM_T && t < UltimatePhase.SLAM_T + 8F) {
-            lean = 32F * (1F - (t - UltimatePhase.SLAM_T) / 8F);
+        float h = ent.getBbHeight();
+        float lean = 0F, roll = 0F, pivot = 0.5F;
+        double back = 0D, lift = 0D;
+        if (t < UltimatePhase.HIT2) {
+            if (t >= UltimatePhase.HIT1 && t < UltimatePhase.PUSH_END + 2F) { // ilk vurus: kisa savrulma
+                float u = t - UltimatePhase.HIT1;
+                float k = u < 1.5F ? u / 1.5F : Math.max(0F, 1F - (u - 1.5F) / (UltimatePhase.PUSH_END + 2F - UltimatePhase.HIT1 - 1.5F));
+                lean = -18F * k;
+                back = 0.15D * k;
+                pivot = 0.3F;
+            }
+        } else if (vt >= UltimatePhase.SLAM_T) { // yerde: ayak pivotlu (kalkarken ayaklar yerde kalir)
+            lean = finaleLean(vt);
+            pivot = 0F;
+            float k = Math.abs(Mth.sin(lean * Mth.DEG_TO_RAD));
+            double rest = Math.max(0.22, Math.min(ent.getBbWidth(), 0.7F) * 0.5);
+            lift = rest * k;
+            back = -h * 0.5 * k; // yatarken merkez cakilma noktasinda (dusus bitisiyle ayni yer)
+            if (vt < UltimatePhase.SLAM_T + 5F) lift += 0.35 * Mth.sin((vt - UltimatePhase.SLAM_T) / 5F * Mth.PI); // sekme
         } else {
-            lean = 0F;
+            lean = finaleLean(vt);
+            roll = finaleRoll(vt);
+            // sirtustu yatarken govde yere otursun (merkez pivotlu donus govdeyi havada birakir)
+            float ground;
+            if (vt < UltimatePhase.HITSTOP3_END) ground = 0F;
+            else ground = smooth((vt - (UltimatePhase.SLAM_T - 3F)) / 3F);
+            double rest = Math.max(0.22, Math.min(ent.getBbWidth(), 0.7F) * 0.5);
+            lift = -(h * 0.5 - rest) * Math.abs(Mth.sin(lean * Mth.DEG_TO_RAD)) * ground;
         }
-        if ((k <= 0F || lean == 0F) && ox == 0 && oy == 0 && oz == 0) return;
+        if (lean == 0F && roll == 0F && ox == 0 && oy == 0 && oz == 0 && lift == 0) return;
         PoseStack ps = event.getPoseStack();
         ps.pushPose();
-        ps.translate(ox, oy, oz);
-        double back = t < UltimatePhase.LAUNCH_T ? 0.15D * k : 0D;
-        ps.translate(s.arena.fx * back, 0D, s.arena.fz * back);
-        ps.translate(0D, ent.getBbHeight() * 0.3D, 0D);
-        // geriye (forward yonunde) egil: eksen = right
-        ps.mulPose(new org.joml.Quaternionf().rotationAxis((float) Math.toRadians(lean * k), (float) s.arena.rx(), 0F,
+        ps.translate(ox + s.arena.fx * back, oy + lift, oz + s.arena.fz * back);
+        ps.translate(0D, h * pivot, 0D);
+        // egilme: eksen = sag (negatif = ust kisim ileri, yani geriye devrilme); yuvarlanma: eksen = ileri
+        ps.mulPose(new org.joml.Quaternionf().rotationAxis((float) Math.toRadians(lean), (float) s.arena.rx(), 0F,
                 (float) s.arena.rz()));
-        ps.translate(0D, -ent.getBbHeight() * 0.3D, 0D);
+        if (roll != 0F) {
+            ps.mulPose(new org.joml.Quaternionf().rotationAxis((float) Math.toRadians(roll), (float) s.arena.fx, 0F,
+                    (float) s.arena.fz));
+        }
+        ps.translate(0D, -h * pivot, 0D);
         pushedTarget = ent.getId();
+    }
+
+    /** Finalde hedefin egilmesi (derece; negatif = ust kisim ileri, govde geriye devrilir). */
+    private static float finaleLean(float vt) {
+        if (vt < UltimatePhase.LAUNCH_T) return -14F * Math.min(1F, (vt - UltimatePhase.HIT2) / 0.6F); // aparkat
+        if (vt < UltimatePhase.HIT3) return flyLean(vt);
+        if (vt < UltimatePhase.HITSTOP3_END) { // sirttan yumruk: govde bukulur (hit-stop'ta donuk)
+            return flyLean(UltimatePhase.HIT3) + 22F * smooth((vt - UltimatePhase.HIT3) / 0.6F);
+        }
+        float hit = flyLean(UltimatePhase.HIT3) + 22F;
+        if (vt < UltimatePhase.SLAM_T) return Mth.lerp(smooth((vt - UltimatePhase.HITSTOP3_END) / 6F), hit, -90F);
+        if (vt < UltimatePhase.TARGET_FREE - 10F) return -90F;
+        return -90F * (1F - smooth((vt - (UltimatePhase.TARGET_FREE - 10F)) / 10F)); // kalkar
+    }
+
+    /** Ucus: hizla geriye devrilir, yavas cekimde ters takla atmaya devam eder. */
+    private static float flyLean(float vt) {
+        float u = (vt - UltimatePhase.LAUNCH_T) / 8F;
+        float o = 1F - (1F - Mth.clamp(u, 0F, 1F)) * (1F - Mth.clamp(u, 0F, 1F)) * (1F - Mth.clamp(u, 0F, 1F));
+        return -14F - 66F * o - 24F * smooth((vt - (UltimatePhase.LAUNCH_T + 4F)) / 20F)
+                + 3F * Mth.sin((vt - UltimatePhase.LAUNCH_T) * 0.3F) * o;
+    }
+
+    /** Ucusta hafif yan yuvarlanma (yavas cekim), yumrukla duzelir. */
+    private static float finaleRoll(float vt) {
+        if (vt < UltimatePhase.LAUNCH_T || vt >= UltimatePhase.SLAM_T) return 0F;
+        if (vt < UltimatePhase.HIT3) {
+            return 10F * Mth.sin((vt - UltimatePhase.LAUNCH_T) * 0.16F) * smooth((vt - UltimatePhase.LAUNCH_T) / 6F);
+        }
+        float r = 10F * Mth.sin((UltimatePhase.HIT3 - UltimatePhase.LAUNCH_T) * 0.16F);
+        return r * (1F - smooth((vt - UltimatePhase.HIT3) / 4F));
+    }
+
+    private static float smooth(float u) {
+        u = Mth.clamp(u, 0F, 1F);
+        return u * u * (3F - 2F * u);
     }
 
     @SubscribeEvent

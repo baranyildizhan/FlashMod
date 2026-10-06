@@ -19,10 +19,12 @@ public final class UltimateStartPacket {
     public final boolean youAreTarget, fullCinematic, preview;
     /** Ilk vurusta hedefin ileri kayma mesafesi (blok). */
     public final float push;
+    /** Final ucus olcegi (0.4..1; engel varsa kucuk). */
+    public final float fly;
 
     public UltimateStartPacket(int sessionId, int casterId, int targetId, long startGameTime, float scale, ArenaFrame arena,
                                double sx, double sy, double sz, int core, int glow, long seed, boolean youAreTarget,
-                               boolean fullCinematic, boolean preview, float push) {
+                               boolean fullCinematic, boolean preview, float push, float fly) {
         this.sessionId = sessionId;
         this.casterId = casterId;
         this.targetId = targetId;
@@ -39,6 +41,7 @@ public final class UltimateStartPacket {
         this.fullCinematic = fullCinematic;
         this.preview = preview;
         this.push = push;
+        this.fly = fly;
     }
 
     public static void encode(UltimateStartPacket m, FriendlyByteBuf buf) {
@@ -58,13 +61,15 @@ public final class UltimateStartPacket {
         buf.writeBoolean(m.fullCinematic);
         buf.writeBoolean(m.preview);
         buf.writeFloat(m.push);
+        buf.writeFloat(m.fly);
     }
 
     public static UltimateStartPacket decode(FriendlyByteBuf buf) {
         return new UltimateStartPacket(buf.readInt(), buf.readInt(), buf.readInt(), buf.readLong(), buf.readFloat(),
                 ArenaFrame.read(buf), buf.readDouble(), buf.readDouble(), buf.readDouble(), buf.readInt(), buf.readInt(),
                 buf.readLong(), buf.readBoolean(), buf.readBoolean(), buf.readBoolean(),
-                Math.max(0F, Math.min(dev.baranhan.flashmod.ultimate.UltimatePhase.PUSH_MAX, buf.readFloat())));
+                Math.max(0F, Math.min(dev.baranhan.flashmod.ultimate.UltimatePhase.PUSH_MAX, buf.readFloat())),
+                Math.max(0.3F, Math.min(1F, buf.readFloat())));
     }
 
     public static void handle(UltimateStartPacket m, Supplier<NetworkEvent.Context> ctx) {

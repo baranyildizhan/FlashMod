@@ -182,7 +182,7 @@ public final class UltWorldFx {
         // --- havada belirme: yerden havadaki noktaya blink simsekleri + belirdigi yerde kucuk patlama
         if (t >= UltimatePhase.AIR_BLINK - 1F && t < UltimatePhase.AIR_BLINK + 4F && !far) {
             float k = Mth.clamp(1F - (t - UltimatePhase.AIR_BLINK) / 4F, 0F, 1F);
-            Vec3 from = caster != null ? caster.getPosition(pt).add(0, 1.0, 0) : a.toWorld(0, 1.0, 0);
+            Vec3 from = caster != null ? UltRender.returnSpot(s, caster.getPosition(pt).y).add(0, 1.0, 0) : a.toWorld(0, 1.0, 0);
             Vec3 to = s.casterAir(UltimatePhase.AIR_BLINK).add(0, 1.0, 0);
             R.seed(s.seed ^ 0xB11L, frame, 3);
             for (int i = 0; i < 3; i++) {
@@ -198,17 +198,37 @@ public final class UltWorldFx {
                     (int) (10 * q()) + 4, s.seed ^ 0xA1BL, frame, core, glow, 0.9F);
         }
 
-        // --- havadaki yumruk: hedefin sirtinda patlama (hit-stop'ta donar) + sok halkasi
+        // --- asili kalan hedefin uzerinde gezinen kucuk simsekler (yavas cekim: seyrek yenilenir)
+        if (t >= UltimatePhase.LAUNCH_T + 2F && t < UltimatePhase.HIT3 && !far) {
+            Vec3 tc = s.targetScripted(t).add(0, s.targetH * 0.5, 0);
+            float k = Math.min(1F, (t - UltimatePhase.LAUNCH_T - 2F) / 4F);
+            R.seed(s.seed ^ 0x51F0L, (long) (t / 5F), 2);
+            for (int i = 0; i < 3; i++) {
+                float r = s.targetH * 0.45F;
+                LINE.clear();
+                Lightning.jag(LINE, R, rel(tc.x + R.signed() * 0.3, cam.x), rel(tc.y + R.signed() * r, cam.y),
+                        rel(tc.z + R.signed() * 0.3, cam.z), rel(tc.x + R.signed() * 0.6, cam.x),
+                        rel(tc.y + R.signed() * r, cam.y), rel(tc.z + R.signed() * 0.6, cam.z), 0.3F, 3, false, k, k * 0.3F);
+                GlowDraw.layered(vc, m, LINE, 0.45F, core, glow, 0.8F * k, bloom(), false);
+            }
+        }
+
+        // --- havadaki yumruk: hedefin sirtinda patlama (hit-stop'ta donar) + ucus dogrusuna dik sok halkalari
         if (vt >= UltimatePhase.HIT3 && vt < UltimatePhase.HIT3 + 12F && !far) {
             float u = (vt - UltimatePhase.HIT3) / 12F;
-            Vec3 c = s.targetScripted(UltimatePhase.HIT3).add(a.fx * 0.25, s.targetH * 0.8, a.fz * 0.25);
-            burst(vc, m, cam, c, Double.NaN, 2.6F, u, (int) (14 * q()) + 6, s.seed ^ 0x318L, frame, core, glow, 1F);
-            for (int i = 0; i < 2; i++) {
-                float ur = (vt - UltimatePhase.HIT3 - i * 2F) / 10F;
+            dev.baranhan.flashmod.ultimate.UltimateScript.Path fp = s.path;
+            float dx = (float) (a.fx * fp.ux), dy = (float) fp.uy, dz = (float) (a.fz * fp.ux); // yumruk dogrusu (yukari-ileri)
+            Vec3 c = s.targetScripted(UltimatePhase.HIT3).add(dx * 0.3, s.targetH * 0.5 + dy * 0.3, dz * 0.3);
+            burst(vc, m, cam, c, Double.NaN, 2.8F, u, (int) (14 * q()) + 6, s.seed ^ 0x318L, frame, core, glow, 1F);
+            basis(dx, dy, dz, P, Q);
+            for (int i = 0; i < 3; i++) {
+                float ur = (vt - UltimatePhase.HIT3 - i * 1.5F) / 10F;
                 if (ur < 0F || ur > 1F) continue;
-                GlowDraw.ring(vc, m, rel(c.x, cam.x), rel(c.y, cam.y), rel(c.z, cam.z), 1, 0, 0, 0, 0, 1,
-                        Mth.lerp(ur, 0.5F, 3.5F) * (i == 0 ? 1F : 0.7F), Mth.lerp(ur, 0.1F, 0.02F), 1F, 0.92F, 0.78F,
-                        0.7F * (1F - ur), 56);
+                // halkalar yumruk yonunde (asagi-geri) ilerler
+                float adv = -ur * (1.2F + i * 0.8F);
+                GlowDraw.ring(vc, m, rel(c.x + dx * adv, cam.x), rel(c.y + dy * adv, cam.y), rel(c.z + dz * adv, cam.z),
+                        P[0], P[1], P[2], Q[0], Q[1], Q[2], Mth.lerp(ur, 0.5F, 3.2F) * (1F - i * 0.2F), Mth.lerp(ur, 0.1F, 0.02F),
+                        1F, 0.92F, 0.78F, 0.7F * (1F - ur), 56);
             }
         }
 
