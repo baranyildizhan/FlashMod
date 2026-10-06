@@ -87,7 +87,7 @@ public final class FlashServerConfig {
                 .defineInRange("abortCooldownFraction", 0.5D, 0.0D, 1.0D);
         ULT_RANGE = b.comment("Targeting range (blocks).").defineInRange("range", 16.0D, 2.0D, 64.0D);
         ULT_CONE = b.comment("Fallback cone angle (degrees).").defineInRange("coneAngle", 15.0D, 1.0D, 60.0D);
-        ULT_DURATION_SCALE = b.comment("Scales the whole timeline (1 = 10 s).").defineInRange("durationScale", 1.0D, 0.1D, 2.0D);
+        ULT_DURATION_SCALE = b.comment("Scales the whole timeline (1 = ~17 s).").defineInRange("durationScale", 1.0D, 0.1D, 2.0D);
         ULT_HIT1 = b.defineInRange("hit1Damage", 4.0D, 0.0D, 1000.0D);
         ULT_HIT2_BASE = b.defineInRange("hit2BaseDamage", 16.0D, 0.0D, 1000.0D);
         ULT_HIT2_PERCENT = b.defineInRange("hit2PercentMaxHealth", 0.10D, 0.0D, 1.0D);

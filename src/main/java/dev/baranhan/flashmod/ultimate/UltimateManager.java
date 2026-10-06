@@ -48,9 +48,10 @@ public final class UltimateManager {
 
     /** Konumlu sunucu sesleri: {tick, ses, nerede (0 caster, 1 hedef, 2 temas)}. */
     private static final Object[][] SOUNDS = {
-            {1, "ult_blink", 0}, {12, "ult_roar_crackle", 0}, {22, "ult_whoosh_depart", 0}, {26, "ult_hit_light", 1},
-            {33, "ult_sonic_boom", 1}, {158, "ult_impact_huge", 2}, {162, "ult_release_whoosh", 1},
-            {162, "ult_launch_wind", 1}, {180, "ult_thunder_tail", 1}};
+            {UltimatePhase.BLINK, "ult_blink", 0}, {16, "ult_roar_crackle", 0}, {UltimatePhase.HIDE_BODY, "ult_whoosh_depart", 0},
+            {UltimatePhase.HIT1, "ult_hit_light", 1}, {44, "ult_sonic_boom", 1}, {UltimatePhase.HIT2, "ult_impact_huge", 2},
+            {UltimatePhase.LAUNCH_T, "ult_release_whoosh", 1}, {UltimatePhase.LAUNCH_T, "ult_launch_wind", 1},
+            {UltimatePhase.LAUNCH_T + 18, "ult_thunder_tail", 1}};
 
     private UltimateManager() {}
 
@@ -118,6 +119,7 @@ public final class UltimateManager {
             if (o != null) { origin = o; dUsed = d; break; }
         }
         if (origin == null) { deny(caster, "flashmod.ult.no_space"); return false; }
+        float push = pushDistance(target, fx, fz, airborne);
         if (!debug && !AbilityLogic.consumeEnergy(caster, cost)) { deny(caster, "flashmod.ult.no_energy"); return false; }
 
         ServerLevel level = caster.serverLevel();
@@ -125,6 +127,7 @@ public final class UltimateManager {
         float scale = FlashServerConfig.ULT_DURATION_SCALE.get().floatValue();
         UltimateSession s = new UltimateSession(nextId++, caster.getUUID(), target.getId(), target.getUUID(), level.dimension(),
                 arena, now + 2, scale, level.getRandom().nextLong(), caster.position(), debug);
+        s.push = push;
         s.lockPos = origin;
         s.lockYaw = arena.forwardYaw();
         s.lastTargetPos = tp;
@@ -161,17 +164,39 @@ public final class UltimateManager {
             boolean isTarget = pl == tPlayer;
             boolean full = pl == caster || (isTarget && FlashServerConfig.ULT_TARGET_SEES.get());
             FlashNetwork.sendTo(pl, new UltimateStartPacket(s.id, caster.getId(), s.targetId, s.startGameTime, s.scale,
-                    s.arena, s.startPos.x, s.startPos.y, s.startPos.z, core, glow, s.seed, isTarget, full, false));
+                    s.arena, s.startPos.x, s.startPos.y, s.startPos.z, core, glow, s.seed, isTarget, full, false, s.push));
         }
     }
 
     /** /flashult preview: sunucuda hicbir sey olmadan, sadece o istemcide gorsel onizleme. */
     public static void preview(ServerPlayer p, @Nullable LivingEntity target) {
         double fx = -Math.sin(Math.toRadians(p.getYRot())), fz = Math.cos(Math.toRadians(p.getYRot()));
-        ArenaFrame arena = new ArenaFrame(p.getX(), p.getY(), p.getZ(), fx, fz, UltimatePhase.ARENA_DISTANCE);
+        float d = UltimatePhase.ARENA_DISTANCE, push = 0F;
+        if (target != null) { // hedef varsa arena gercek konumlara hizalanir (onizleme ile gercek kullanim ayni gorunsun)
+            double dx = target.getX() - p.getX(), dz = target.getZ() - p.getZ(), l = Math.sqrt(dx * dx + dz * dz);
+            if (l > 0.5) { fx = dx / l; fz = dz / l; d = (float) l; }
+            push = pushDistance(target, fx, fz, !target.onGround());
+        }
+        ArenaFrame arena = new ArenaFrame(p.getX(), p.getY(), p.getZ(), fx, fz, d);
         FlashNetwork.sendTo(p, new UltimateStartPacket(-(nextId++), p.getId(), target == null ? -1 : target.getId(),
                 p.level().getGameTime() + 2, 1F, arena, p.getX(), p.getY(), p.getZ(), SpeedsterData.getCore(p),
-                SpeedsterData.getGlow(p), p.getRandom().nextLong(), false, true, true));
+                SpeedsterData.getGlow(p), p.getRandom().nextLong(), false, true, true, push));
+    }
+
+    /**
+     * Ilk vurusta hedefin ileri kayabilecegi mesafe: yol boyunca carpisma yok ve (havada degilse) altinda zemin var.
+     * Ilk engelde durur; en fazla PUSH_MAX.
+     */
+    private static float pushDistance(LivingEntity target, double fx, double fz, boolean airborne) {
+        AABB box = target.getBoundingBox();
+        float ok = 0F;
+        for (float p = 0.2F; p <= UltimatePhase.PUSH_MAX + 1.0E-3F; p += 0.2F) {
+            AABB moved = box.move(fx * p, 0, fz * p);
+            if (!target.level().noCollision(target, moved)) break;
+            if (!airborne && target.level().noCollision(target, moved.move(0, -0.5, 0))) break; // ucurum
+            ok = p;
+        }
+        return ok;
     }
 
     // ---------------------------------------------------------------- tick
@@ -212,7 +237,7 @@ public final class UltimateManager {
         }
         if (t >= UltimatePhase.RETURN_TP && !s.returned) {
             s.returned = true;
-            Vec3 r = s.arena.toWorld(-0.15D, 0D, s.arena.d - 1.1D);
+            Vec3 r = s.arena.toWorld(-0.15D, 0D, s.arena.d + s.push - 1.1D);
             Vec3 stand = findStand(caster, r, false);
             s.lockPos = stand != null ? stand : s.lockPos;
             teleport(caster, s.lockPos, s.lockYaw);
@@ -226,9 +251,12 @@ public final class UltimateManager {
         // stasis
         if (s.stasis && target != null) {
             target.setDeltaMovement(Vec3.ZERO);
-            if (target.position().distanceToSqr(s.freezePos) > 0.05D * 0.05D) {
-                if (target instanceof ServerPlayer sp) sp.connection.teleport(s.freezePos.x, s.freezePos.y, s.freezePos.z, sp.getYRot(), sp.getXRot());
-                else target.setPos(s.freezePos.x, s.freezePos.y, s.freezePos.z);
+            // ilk vurus: hedef HIT1 -> PUSH_END arasi ileri kayar (istemci ayni egriyle yumusak cizer)
+            double k = s.push * UltimatePhase.pushEase(t);
+            Vec3 want = s.freezePos.add(s.arena.fx * k, 0, s.arena.fz * k);
+            if (target.position().distanceToSqr(want) > 0.05D * 0.05D) {
+                if (target instanceof ServerPlayer sp) sp.connection.teleport(want.x, want.y, want.z, sp.getYRot(), sp.getXRot());
+                else target.setPos(want.x, want.y, want.z);
             }
             target.hurtMarked = true;
             target.fallDistance = 0F;
@@ -266,7 +294,7 @@ public final class UltimateManager {
             SoundEvent ev = FlashSounds.ult((String) SOUNDS[i][1]);
             int where = (Integer) SOUNDS[i][2];
             Vec3 at = where == 0 ? caster.position() : where == 1 ? (target != null ? target.position() : s.lastTargetPos)
-                    : s.arena.toWorld(0D, 1.35D, s.arena.d - 0.25D);
+                    : s.arena.toWorld(0D, 1.35D, s.arena.d + s.push - 0.25D);
             if (ev != null && at != null) level.playSound(null, at.x, at.y, at.z, ev, SoundSource.PLAYERS, 1.6F, 1.0F);
         }
 

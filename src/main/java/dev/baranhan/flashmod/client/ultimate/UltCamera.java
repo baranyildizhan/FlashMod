@@ -33,81 +33,99 @@ public final class UltCamera {
     /** Bakis modu: sabit nokta ya da dinamik. */
     public static final int LOOK_FIXED = 0, LOOK_TARGET = 1, LOOK_MID = 2, LOOK_CONTACT = 3;
 
-    public record Key(float t, Vec3 pos, Vec3 look, int lookMode, float fov, float roll, Ease ease, boolean cut) {}
+    /**
+     * follow: SCENE'de konum ve bakis kosucuya goreli (director kosucunun (t - lag) anindaki konumunu ekler).
+     * lag zamanla dogrusal buyurse kamera yerinde kalir, kosucu kadrajdan uzaklasir.
+     */
+    public record Key(float t, Vec3 pos, Vec3 look, int lookMode, float fov, float roll, Ease ease, boolean cut,
+                      boolean follow, float lag) {}
 
     public record Track(UltimatePhase.Space space, Key[] keys) {}
 
-    public record State(Vec3 pos, Vec3 look, int lookMode, float fov, float roll, UltimatePhase.Space space) {}
+    public record State(Vec3 pos, Vec3 look, int lookMode, float fov, float roll, UltimatePhase.Space space,
+                        boolean follow, float lag) {}
 
     private UltCamera() {}
 
     private static Key k(float t, double x, double y, double z, double lx, double ly, double lz, float fov, float roll,
                          Ease e, boolean cut) {
-        return new Key(t, new Vec3(x, y, z), new Vec3(lx, ly, lz), LOOK_FIXED, fov, roll, e, cut);
+        return new Key(t, new Vec3(x, y, z), new Vec3(lx, ly, lz), LOOK_FIXED, fov, roll, e, cut, false, 0F);
+    }
+
+    /** Kosucuyu takip eden sahne anahtari. */
+    private static Key kf(float t, double x, double y, double z, double lx, double ly, double lz, float fov, float roll,
+                          Ease e, boolean cut, float lag) {
+        return new Key(t, new Vec3(x, y, z), new Vec3(lx, ly, lz), LOOK_FIXED, fov, roll, e, cut, true, lag);
     }
 
     private static Key kd(float t, double x, double y, double z, int mode, Vec3 offset, float fov, float roll, Ease e,
                           boolean cut) {
-        return new Key(t, new Vec3(x, y, z), offset, mode, fov, roll, e, cut);
+        return new Key(t, new Vec3(x, y, z), offset, mode, fov, roll, e, cut, false, 0F);
     }
 
-    /** Oturuma ozel tablolar (D ve hedef boyutuna gore). */
-    public static Track[] build(float d, float targetWidth) {
+    /** Oturuma ozel tablolar (D, ilk vurus itmesi ve hedef boyutuna gore). */
+    public static Track[] build(float d, float push, float targetWidth) {
         double wx = Math.max(0D, (targetWidth - 0.6D) * 0.5D);
+        double di = d + push; // itilmis hedef
         UltimatePhase.Space A = UltimatePhase.Space.ARENA, S = UltimatePhase.Space.SCENE;
         Ease L = Ease.LINEAR;
         return new Track[]{
-                // WINDUP: on-sag-alcak, yuze bakis
+                // WINDUP: on-sag, alcak orta plan; yavasca yaklasir (yuz kadraja oturur, kafanin icine girmez)
                 new Track(A, new Key[]{
-                        k(4, 0.90 + wx, 1.15, 1.70, 0, 1.50, 0, 62, 0, Ease.IN_OUT_CUBIC, false),
-                        k(12, 0.62 + wx, 1.30, 1.35, 0, 1.55, 0, 55, -4, Ease.OUT_QUAD, false),
-                        k(18, 0.48 + wx, 1.40, 1.12, 0, 1.60, 0, 49, -7, Ease.IN_OUT_SINE, false),
-                        k(22, 0.42 + wx, 1.44, 1.02, 0, 1.62, 0, 46, -8, L, false)}),
-                // DEPART: hedefin sagi, alcak; caster arkadan gecip ekranin soluna uzaklasir
+                        k(6, 1.95 + wx, 0.85, 2.05, 0, 1.20, 0, 60, 0, Ease.IN_OUT_CUBIC, false),
+                        k(18, 1.60 + wx, 0.95, 1.80, 0, 1.30, 0, 56, -3, Ease.OUT_QUAD, false),
+                        k(26, 1.30 + wx, 1.10, 1.55, 0, 1.42, 0, 52, -5, Ease.IN_OUT_SINE, false),
+                        k(30, 1.20 + wx, 1.15, 1.45, 0, 1.46, 0, 50, -6, L, false)}),
+                // DEPART: soldan genis yan cekim (caster hedefin bu tarafindan gecer, arkasinda kalmaz); kosu, vurus,
+                // hedefin ileri kaymasi, caster'in uzaklasmasi
                 new Track(A, new Key[]{
-                        k(22, 3.20, 1.00, d - 0.60, 0, 1.10, d, 60, -3, L, true),
-                        k(26, 3.00, 1.05, d - 0.20, -0.40, 1.10, d + 0.20, 64, -2, Ease.OUT_QUAD, false),
-                        k(34, 2.80, 1.10, d + 0.30, -0.60, 1.00, d + 3.50, 70, 0, Ease.IN_OUT_CUBIC, false),
-                        k(40, 2.70, 1.10, d + 0.40, -0.60, 1.00, d + 8.00, 74, 0, L, false)}),
-                // VOID: omuz arkasi -> genis yan cekim
+                        k(30, -3.90 - wx, 1.05, d * 0.45, -0.3, 1.00, d * 0.55, 62, 2, L, true),
+                        k(36, -3.70 - wx, 1.10, d * 0.50 + 0.2, -0.3, 1.05, d + 0.1, 60, 2, Ease.OUT_QUAD, false),
+                        k(46, -3.50 - wx, 1.15, d * 0.55 + 0.6, -0.4, 1.05, di + 1.5, 62, 0, Ease.IN_OUT_CUBIC, false),
+                        k(52, -3.40 - wx, 1.15, d * 0.60 + 0.8, -0.6, 1.00, d + 12.0, 68, 0, L, false)}),
+                // VOID: kosucuyu takip; omuz arkasi -> yan -> on 3/4 (kameraya kosar) -> genis yan -> kosucu uzaklasir
                 new Track(S, new Key[]{
-                        k(40, -1.50, 1.05, -1.00, 0, 0.85, 0.50, 58, 2, L, true),
-                        k(52, -1.30, 1.00, -0.70, 0, 0.80, 0.50, 55, 3, Ease.IN_OUT_SINE, false),
-                        k(56, -2.00, 1.00, -1.60, 0, 0.90, 0.80, 62, 1, Ease.OUT_CUBIC, false),
-                        k(61, -2.30, 1.00, -1.90, 0, 0.90, 1.00, 63, 1, L, false),
-                        k(62, -6.50, 1.15, 1.20, 0, 1.00, 2.60, 50, 0, L, true),
-                        k(66, -6.50, 1.15, 1.60, 0, 1.00, 3.00, 52, 0, L, false),
-                        k(74, -6.80, 1.10, 4.50, 0, 1.00, 7.00, 56, 0, Ease.IN_CUBIC, false),
-                        k(80, -6.80, 1.10, 6.00, 0, 1.00, 30.0, 60, 0, Ease.IN_EXPO, false),
-                        k(86, -6.80, 1.10, 6.20, 0, 1.00, 30.0, 70, 0, Ease.IN_QUAD, false)}),
-                // OCEAN: atmosfer kenari, egik ufuk
+                        kf(52, -2.40, 1.25, -1.80, 0.2, 1.00, 1.60, 60, 2, L, true, 0),
+                        kf(64, -2.90, 1.05, 0.30, 0.0, 0.95, 1.00, 58, 3, Ease.IN_OUT_SINE, false, 0),
+                        kf(74, -3.10, 0.95, 0.60, 0.0, 0.95, 0.80, 57, 2, Ease.IN_OUT_SINE, false, 0),
+                        kf(76, -2.60, 0.65, 4.60, 0.0, 1.00, 0.00, 56, -2, L, true, 0),
+                        kf(90, -2.20, 0.75, 3.40, 0.0, 1.00, 0.20, 60, -3, Ease.IN_OUT_SINE, false, 0),
+                        kf(96, -7.20, 1.60, 1.20, 0.0, 1.00, 2.50, 62, 0, L, true, 0),
+                        kf(106, -7.20, 1.60, 2.80, 0.0, 1.00, 5.00, 66, 0, Ease.IN_OUT_SINE, false, 0),
+                        kf(108, -2.20, 1.25, -3.20, 0.0, 1.00, 10.0, 60, 0, L, true, 0),
+                        kf(122, -2.20, 1.25, -3.20, 0.0, 1.00, 60.0, 72, 0, L, false, 14)}),
+                // OCEAN: alcak, kosucunun arkasindan takip. Egim (roll) ve pitch director'da kompozisyondan
+                // hesaplanir: ufuk sol alttan sag uste, su alani ~%40.
                 new Track(S, new Key[]{
-                        k(86, 0, 60, 0, 0, 35, 800, 70, -16, L, true),
-                        k(100, 0, 58, 25, 8, 30, 800, 72, -17, L, false),
-                        k(112, 0, 62, 40, 10, 30, 800, 74, -18, L, false),
-                        k(120, 0, 380, 10, 0, 100, 800, 95, -10, Ease.IN_EXPO, false)}),
-                // ORBIT: Dunya sag yarida, yavas yaklasma
+                        // kosucu kadrajin sag-alt kisminda, suyun icinde: ~5 blok geride, 2.6 yukarida, bakis ekseni
+                        // kosucunun ~14 derece solunda (pitch/roll kompozisyondan)
+                        kf(122, -1.60, 2.60, -5.00, 6.3, 1.00, 7.8, 70, 0, L, true, 0),
+                        kf(148, -1.90, 2.70, -5.30, 6.1, 1.00, 8.1, 70, 0, Ease.IN_OUT_SINE, false, 0),
+                        kf(164, -2.20, 2.85, -5.70, 5.9, 1.00, 8.5, 70, 0, Ease.IN_OUT_SINE, false, 0),
+                        kf(182, -2.20, 2.85, -5.70, 5.9, 1.00, 8.5, 70, 0, L, false, 18)}),
+                // ORBIT: Dunya etrafinda yavas kamera yorungesi, sonda isigin dalisina yaklasma
                 new Track(S, new Key[]{
-                        k(120, 30, 10, -160, 55, 0, 0, 45, 0, L, true),
-                        k(132, 20, 12, -145, 42, 0, 0, 44, 2, Ease.IN_OUT_SINE, false),
-                        k(140, 8, 14, -128, 30, 0, 0, 42, 3, Ease.IN_OUT_SINE, false)}),
-                // TUNNEL: derinlik -> cömelen Flash -> yuz yakin plan
+                        k(182, 70, 30, -195, 30, 0, 0, 45, 0, L, true),
+                        k(212, 10, 40, -205, 15, 0, 0, 45, 2, Ease.IN_OUT_SINE, false),
+                        k(242, -60, 34, -185, 0, 0, 0, 44, 3, Ease.IN_OUT_SINE, false),
+                        k(262, -45, 22, -125, -6, 4, -40, 40, 3, Ease.IN_CUBIC, false)}),
+                // TUNNEL: derinlik -> comelen Flash -> yuz yakin plan
                 new Track(S, new Key[]{
-                        k(140, 0, 1.20, 0, 0, 1.10, -50, 70, 0, L, true),
-                        k(148, 0, 2.00, 0.80, 0, 0.90, -2.40, 60, 0, Ease.OUT_CUBIC, false),
-                        k(152, 0.30, 1.25, -0.40, -0.10, 1.45, -2.40, 52, -4, Ease.IN_OUT_CUBIC, false),
-                        k(158, 0.25, 1.30, -0.70, -0.10, 1.50, -2.40, 46, -6, Ease.IN_QUAD, false)}),
+                        k(262, 0, 1.20, 0, 0, 1.10, -50, 70, 0, L, true),
+                        k(274, 0, 2.00, 0.80, 0, 0.90, -2.40, 60, 0, Ease.OUT_CUBIC, false),
+                        k(281, 0.30, 1.25, -0.40, -0.10, 1.45, -2.40, 52, -4, Ease.IN_OUT_CUBIC, false),
+                        k(290, 0.25, 1.30, -0.70, -0.10, 1.50, -2.40, 46, -6, Ease.IN_QUAD, false)}),
                 // IMPACT: 3/4 alcak yan aci, temasa bakis
                 new Track(A, new Key[]{
-                        kd(158, -3.10, 0.90, d - 1.60, LOOK_CONTACT, Vec3.ZERO, 66, 4, L, true),
-                        kd(162, -3.15, 0.92, d - 1.65, LOOK_CONTACT, Vec3.ZERO, 64, 4, L, false),
-                        kd(166, -3.30, 0.95, d - 1.80, LOOK_CONTACT, new Vec3(0, 0, 0.6), 70, 3, Ease.OUT_CUBIC, false)}),
-                // LAUNCH: omuz ustu, yayli takip -> genis cekim
+                        kd(290, -3.10, 0.90, di - 1.60, LOOK_CONTACT, Vec3.ZERO, 66, 4, L, true),
+                        kd(294, -3.15, 0.92, di - 1.65, LOOK_CONTACT, Vec3.ZERO, 64, 4, L, false),
+                        kd(298, -3.30, 0.95, di - 1.80, LOOK_CONTACT, new Vec3(0, 0, 0.6), 70, 3, Ease.OUT_CUBIC, false)}),
+                // LAUNCH: omuz ustu (kafayi kadrajda dev gostermeyecek kadar yukarida/yanda), yayli takip -> genis cekim
                 new Track(A, new Key[]{
-                        kd(166, 0.90, 1.70, d - 2.60, LOOK_TARGET, Vec3.ZERO, 62, 0, L, true),
-                        kd(176, 0.90, 1.90, d - 2.80, LOOK_TARGET, Vec3.ZERO, 66, 0, L, false),
-                        kd(182, -1.20, 2.60, d - 5.50, LOOK_MID, Vec3.ZERO, 76, 0, Ease.IN_OUT_CUBIC, false),
-                        kd(188, -1.20, 2.60, d - 5.50, LOOK_MID, Vec3.ZERO, 76, 0, L, false)}),
+                        kd(298, 1.50, 2.15, di - 3.30, LOOK_TARGET, Vec3.ZERO, 62, 0, L, true),
+                        kd(308, 1.60, 2.35, di - 3.60, LOOK_TARGET, Vec3.ZERO, 66, 0, L, false),
+                        kd(315, -1.20, 2.60, di - 5.50, LOOK_MID, Vec3.ZERO, 76, 0, Ease.IN_OUT_CUBIC, false),
+                        kd(322, -1.20, 2.60, di - 5.50, LOOK_MID, Vec3.ZERO, 76, 0, L, false)}),
         };
     }
 
@@ -119,9 +137,10 @@ public final class UltCamera {
         int i = 0;
         while (i + 1 < ks.length && t >= ks[i + 1].t()) i++;
         Key k1 = ks[i];
-        if (i + 1 >= ks.length) return new State(k1.pos(), k1.look(), k1.lookMode(), k1.fov(), k1.roll(), tr.space());
+        if (i + 1 >= ks.length || ks[i + 1].cut()) {
+            return new State(k1.pos(), k1.look(), k1.lookMode(), k1.fov(), k1.roll(), tr.space(), k1.follow(), k1.lag());
+        }
         Key k2 = ks[i + 1];
-        if (k2.cut()) return new State(k1.pos(), k1.look(), k1.lookMode(), k1.fov(), k1.roll(), tr.space());
         float u = (t - k1.t()) / Math.max(1.0E-4F, k2.t() - k1.t());
         float e = k2.ease().apply(u);
         Key k0 = i > 0 && !k1.cut() ? ks[i - 1] : k1;
@@ -129,8 +148,10 @@ public final class UltCamera {
         Vec3 pos = catmull(k0.pos(), k1.pos(), k2.pos(), k3.pos(), e);
         Vec3 look = k1.look().lerp(k2.look(), e);
         int mode = e < 0.5F ? k1.lookMode() : k2.lookMode();
+        // gecikme her zaman dogrusal (kamera sabit kalsin diye easing uygulanmaz)
+        float lag = Mth.lerp(u, k1.lag(), k2.lag());
         return new State(pos, look, k1.lookMode() == k2.lookMode() ? k1.lookMode() : mode,
-                Mth.lerp(e, k1.fov(), k2.fov()), Mth.lerp(e, k1.roll(), k2.roll()), tr.space());
+                Mth.lerp(e, k1.fov(), k2.fov()), Mth.lerp(e, k1.roll(), k2.roll()), tr.space(), k1.follow() || k2.follow(), lag);
     }
 
     /** Merkezcil degil, klasik (uniform) Catmull-Rom; u ∈ [0,1] p1 -> p2. */

@@ -31,7 +31,7 @@ import javax.annotation.Nullable;
 /**
  * Caster/hedef cizimi (bizim Blitz yaklasimimiz): uzuvlar HumanoidModelMixin'den, govdenin konumu/yonu/egilmesi
  * RenderPlayerEvent.Pre'de PoseStack kok donusumuyle. DEPART'ta gercek govde proxy yolunda cizilir ve arkasinda
- * afterimage'lar birakir; 22-158 arasi dunyada gizli. Sahne cizimi (UltScene) override poz/kok ile ayni yolu kullanir.
+ * afterimage'lar birakir; sahneler boyunca dunyada gizli. Sahne cizimi (UltScene) override poz/kok ile ayni yolu kullanir.
  */
 @Mod.EventBusSubscriber(modid = FlashMod.MODID, value = Dist.CLIENT)
 public final class UltRender {
@@ -59,13 +59,14 @@ public final class UltRender {
         ps.mulPose(Axis.YP.rotationDegrees(-(180F - bodyYaw))); // renderer'in kendi govde donusunu iptal
     }
 
-    /** DEPART proxy yolu (arena): dugum indeksi zamanla carpitilir (22-26 IN_QUAD, 26-36 IN_EXPO). */
+    /** DEPART proxy yolu (arena): dugum indeksi zamanla carpitilir (kosu IN_QUAD, vurus aninda hedefin yaninda, sonra hizlanarak kacis). */
     public static Vec3 proxyArena(float t, float d) {
         Vec3[] k = {new Vec3(0, 0, 0), new Vec3(-0.45, 0, 1.40), new Vec3(-0.95, 0, d), new Vec3(-0.80, 0, d + 4.0),
                 new Vec3(-0.60, 0, d + 14.0), new Vec3(-0.60, 0, d + 40.0)};
+        float t0 = UltimatePhase.DEPART.start, hit = UltimatePhase.HIT1;
         float idx;
-        if (t < 26F) idx = 2F * UltCamera.Ease.IN_QUAD.apply((t - 22F) / 4F);
-        else idx = 2F + 3F * UltCamera.Ease.IN_EXPO.apply((t - 26F) / 10F);
+        if (t < hit) idx = 2F * UltCamera.Ease.IN_QUAD.apply((t - t0) / (hit - t0));
+        else idx = 2F + 3F * UltCamera.Ease.IN_QUAD.apply((t - hit) / 8F); // vurur ve hemen firlar
         idx = Mth.clamp(idx, 0F, 5F);
         int i = Math.min(4, (int) idx);
         float u = idx - i;
@@ -74,7 +75,7 @@ public final class UltRender {
 
     /** Caster'in dunya konumu ve yaw'i (bu t'de, gercek govde ya da proxy). */
     public static Vec3 casterWorld(UltState s, Player p, float t, float pt, float[] yawOut) {
-        if (t >= 22F && t < 40F) {
+        if (t >= UltimatePhase.DEPART.start && t < UltimatePhase.DEPART.end) {
             Vec3 a = proxyArena(t, s.arena.d), b = proxyArena(t + 0.05F, s.arena.d);
             Vec3 dw = s.arena.toWorld(b).subtract(s.arena.toWorld(a));
             yawOut[0] = dw.lengthSqr() > 1.0E-8 ? UltCamera.yawTo(dw) : s.arena.forwardYaw();
@@ -101,13 +102,13 @@ public final class UltRender {
         UltState s = UltDirector.forCaster(p.getId());
         if (s == null || s.abortAt >= 0) return;
         float t = s.t(pt);
-        if (t < 0F || t >= 200F) return;
-        if (t >= 40F && t < UltimatePhase.HIT2) { // dunyada gizli (sahne / yorunge devralir)
+        if (t < 0F || t >= UltimatePhase.DURATION) return;
+        if (UltimatePhase.bodyHidden(t)) { // dunyada gizli (sahne / yorunge devralir)
             event.setCanceled(true);
             return;
         }
         float w = UltPoses.pose(t, POSE, s.smallTarget());
-        for (int i = UltPoses.RP; i <= UltPoses.RZ; i++) POSE[i] *= w; // 196-200: koku de vanilla'ya birak
+        for (int i = UltPoses.RP; i <= UltPoses.RZ; i++) POSE[i] *= w; // sonda koku de vanilla'ya birak
         float[] yaw = new float[1];
         Vec3 at = casterWorld(s, p, t, pt, yaw);
         float k = t < 4F ? t / 4F : w;                                // yon: giriste/cikista govde yonuyle karisim
@@ -135,17 +136,14 @@ public final class UltRender {
         PoseStack ps = event.getPoseStack();
         MultiBufferSource buf = event.getMultiBufferSource();
         int light = event.getPackedLight();
-        if (t >= 22F && t < 40F) { // proxy afterimage: 8 kopya, 0.5 tick arayla
+        if (t >= UltimatePhase.DEPART.start && t < UltimatePhase.DEPART.end) { // proxy afterimage (iz zaten bizim iz sisteminde)
             float vt = UltimatePhase.visual(t);
-            for (int i = 1; i <= 8; i++) {
-                float tk = vt - i * 0.5F;
-                if (tk < 22F) break;
-                float a = 0.6F * (float) Math.pow(1F - i / 9F, 1.5);
-                ghost(s, p, model, skin, ps, buf, light, tk, pt, render, a, mixWhite(s.glow, 0.25F + 0.5F * i / 8F), 0F);
+            for (int i = 1; i <= 3; i++) {
+                float tk = vt - i * 0.7F;
+                if (tk < UltimatePhase.DEPART.start) break;
+                float a = 0.28F * (float) Math.pow(1F - i / 4F, 1.5);
+                ghost(s, p, model, skin, ps, buf, light, tk, pt, render, a, mixWhite(s.glow, 0.3F + 0.5F * i / 5F), 0F);
             }
-        } else if (t >= 14F && t < 22F) { // kromatik kayma taklidi: kirmizi saga, camgobegi sola
-            ghost(s, p, model, skin, ps, buf, light, t, pt, render, 0.25F, 0xFF5050, 0.04F);
-            ghost(s, p, model, skin, ps, buf, light, t, pt, render, 0.25F, 0x50FFFF, -0.04F);
         }
     }
 
@@ -186,23 +184,49 @@ public final class UltRender {
 
     // ---------------------------------------------------------------- hedef
 
-    /** 158-162 darbe pozu: hafif geriye bukulmus (oyuncu/humanoid ise kok egilmesi). */
+    /**
+     * Hedef: ilk vurusta ileri kayma (sunucu da ayni egriyle tasir; burada ag gecikmesini ve onizlemeyi yumusak
+     * gostermek icin cizim konumu istenen konuma cekilir) + geriye savrulma; ikinci vurusta darbe pozu.
+     */
     @SubscribeEvent
     public static void onLivingPre(RenderLivingEvent.Pre<?, ?> event) {
         LivingEntity ent = event.getEntity();
         UltState s = UltDirector.forTarget(ent.getId());
         if (s == null || s.abortAt >= 0) return;
-        float t = s.t(event.getPartialTick());
-        if (t < UltimatePhase.HIT2 || t >= UltimatePhase.HITSTOP_END + 2F) return;
-        float k = t < UltimatePhase.HITSTOP_END ? Math.min(1F, (t - UltimatePhase.HIT2) / 0.6F)
-                : 1F - (t - UltimatePhase.HITSTOP_END) / 2F;
+        float pt = event.getPartialTick();
+        float t = s.t(pt);
+        double ox = 0, oz = 0;
+        if (t >= UltimatePhase.HIT1 && t < UltimatePhase.LAUNCH_T && s.push > 0F) {
+            double k = s.push * UltimatePhase.pushEase(t);
+            Vec3 r = ent.getPosition(pt);
+            ox = s.targetBase.x + s.arena.fx * k - r.x;
+            oz = s.targetBase.z + s.arena.fz * k - r.z;
+            double l = Math.sqrt(ox * ox + oz * oz), max = s.push + 0.3;
+            if (l > max) { ox *= max / l; oz *= max / l; }
+        }
+        float k;
+        float lean;
+        if (t >= UltimatePhase.HIT1 && t < UltimatePhase.PUSH_END + 2F) { // ilk vurus: kisa savrulma
+            float u = t - UltimatePhase.HIT1;
+            k = u < 1.5F ? u / 1.5F : Math.max(0F, 1F - (u - 1.5F) / (UltimatePhase.PUSH_END + 2F - UltimatePhase.HIT1 - 1.5F));
+            lean = -18F;
+        } else if (t >= UltimatePhase.HIT2 && t < UltimatePhase.HITSTOP_END + 2F) {
+            k = t < UltimatePhase.HITSTOP_END ? Math.min(1F, (t - UltimatePhase.HIT2) / 0.6F)
+                    : 1F - (t - UltimatePhase.HITSTOP_END) / 2F;
+            lean = -15F;
+        } else {
+            k = 0F;
+            lean = 0F;
+        }
+        if (k <= 0F && ox == 0 && oz == 0) return;
         PoseStack ps = event.getPoseStack();
         ps.pushPose();
+        ps.translate(ox, 0D, oz);
         double back = 0.15D * k;
         ps.translate(s.arena.fx * back, 0D, s.arena.fz * back);
         ps.translate(0D, ent.getBbHeight() * 0.3D, 0D);
         // geriye (forward yonunde) egil: eksen = right
-        ps.mulPose(new org.joml.Quaternionf().rotationAxis((float) Math.toRadians(-15.0 * k), (float) s.arena.rx(), 0F,
+        ps.mulPose(new org.joml.Quaternionf().rotationAxis((float) Math.toRadians(lean * k), (float) s.arena.rx(), 0F,
                 (float) s.arena.rz()));
         ps.translate(0D, -ent.getBbHeight() * 0.3D, 0D);
         pushedTarget = ent.getId();

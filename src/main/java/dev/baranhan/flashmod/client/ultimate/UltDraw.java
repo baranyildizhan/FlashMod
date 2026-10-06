@@ -61,11 +61,16 @@ public final class UltDraw {
 
     public static void v(BufferBuilder b, Matrix4f m, double x, double y, double z, float u, float vv, float r, float g,
                          float bl, float a) {
-        b.vertex(m, (float) x, (float) y, (float) z).uv(u, vv).color(r, g, bl, a).endVertex();
+        b.vertex(m, (float) x, (float) y, (float) z).uv(u, vv).color(sat(r), sat(g), sat(bl), sat(a)).endVertex();
     }
 
     public static void c(BufferBuilder b, Matrix4f m, double x, double y, double z, float r, float g, float bl, float a) {
-        b.vertex(m, (float) x, (float) y, (float) z).color(r, g, bl, a).endVertex();
+        b.vertex(m, (float) x, (float) y, (float) z).color(sat(r), sat(g), sat(bl), sat(a)).endVertex();
+    }
+
+    /** 0..1'e kirp: renk bayta cevrilirken 1'i asan deger tasar (parlak yerler koyu/yesil gorunur). */
+    private static float sat(float v) {
+        return v < 0F ? 0F : (v > 1F ? 1F : v);
     }
 
     public static float r(int c) { return ((c >> 16) & 0xFF) / 255F; }

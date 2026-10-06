@@ -8,14 +8,16 @@ import net.minecraft.resources.ResourceLocation;
 import net.minecraft.util.Mth;
 
 /**
- * Prosedurel dokular (dosya gerekmez): bulut, cizgi bandi, dikey kopuk, kopuk lekeleri, dalga lekeleri, gokyuzu
- * fircasi, tunel bantlari, yumusak hale, Dunya ve bulut katmani. Hepsi beyaz/gri (renk vertex'ten), NativeImage ABGR.
- * Dunya dokusu da prosedurel (telifli/fotografik asset yok); istenirse NASA Blue Marble ile degistirilebilir.
+ * Prosedurel dokular: bulut, cizgi bandi, dikey kopuk, kopuk lekeleri, dalga lekeleri, gokyuzu fircasi, tunel
+ * bantlari, yumusak hale. Hepsi beyaz/gri (renk vertex'ten), NativeImage ABGR.
+ * Dunya: NASA Blue Marble Next Generation (Temmuz 2004, batimetrili), bulut katmani ve gece isiklari (NASA Visible
+ * Earth, kamu malı) -> assets/flashmod/textures/ult/. Uzaktan titremesin diye mipmap'li yuklenir.
  */
 public final class UltTextures {
     public static final ResourceLocation CLOUD = id("cloud"), STREAK = id("streak"), FOAM_V = id("foam_v"),
             FOAM = id("foam"), CAPS = id("caps"), SKY = id("sky"), TUNNEL = id("tunnel"), GLOW = id("glow"),
-            EARTH = id("earth"), EARTH_CLOUDS = id("earth_clouds");
+            EARTH = id("earth"), EARTH_CLOUDS = id("earth_clouds"), EARTH_NIGHT = id("earth_night"),
+            RIPPLE = id("ripple"), GLITTER = id("glitter");
     private static boolean ready;
 
     private UltTextures() {}
@@ -74,23 +76,57 @@ public final class UltTextures {
             float a = Mth.clamp(1F / (1F + r * r * 18F) - 0.05F, 0F, 1F) * Mth.clamp((1F - r) * 3F, 0F, 1F);
             return gray(1F, a);
         });
-        reg(EARTH, 512, 256, (x, y, w, h) -> {
-            float lon = x / (float) w, lat = y / (float) h;
-            float n = fbm(lon * 6F, lat * 3F, 6, 6, 71);
-            float polar = Math.abs(lat - 0.5F) * 2F;
-            if (polar > 0.86F) return rgb(0.92F, 0.95F, 0.98F, 1F);
-            if (n > 0.53F) { // kara
-                float d = Mth.clamp((n - 0.53F) * 5F, 0F, 1F);
-                float dry = fbm(lon * 10F, lat * 6F, 3, 10, 81);
-                return rgb(Mth.lerp(dry, 0.20F, 0.55F) * (1F - d * 0.2F), Mth.lerp(dry, 0.42F, 0.45F), Mth.lerp(dry, 0.16F, 0.28F), 1F);
+        reg(RIPPLE, 256, 256, (x, y, w, h) -> { // su yuzeyindeki ince dalga sirtlari (ruzgara dik uzamis)
+            float nx = x / (float) w, ny = y / (float) h;
+            float n = fbm(nx * 6F, ny * 16F, 4, 6, 101) * 0.65F + fbm(nx * 13F, ny * 5F, 3, 13, 111) * 0.35F;
+            return gray(1F, Mth.clamp((n - 0.52F) * 3.2F, 0F, 1F));
+        });
+        reg(GLITTER, 128, 128, (x, y, w, h) -> { // gunes parlamasi icin seyrek parlak noktalar
+            float hv = hash(x, y, 121), hv2 = hash(x / 2, y / 2, 131);
+            float a = hv > 0.992F ? 1F : (hv2 > 0.985F ? 0.45F : 0F);
+            return gray(1F, a);
+        });
+        loadMip(EARTH, "earth", false);
+        loadMip(EARTH_CLOUDS, "earth_clouds", true);
+        loadMip(EARTH_NIGHT, "earth_night", false);
+    }
+
+    /**
+     * Mod dokusunu mipmap'li yukler. alphaFromLuma: gri tonlamayi beyaz + alfa'ya cevirir (bulut katmani).
+     * Dosya okunamazsa duz renkli yedek doku (sahne yine calisir).
+     */
+    private static void loadMip(ResourceLocation loc, String file, boolean alphaFromLuma) {
+        NativeImage img;
+        ResourceLocation src = new ResourceLocation(FlashMod.MODID, "textures/ult/" + file + ".png");
+        try (java.io.InputStream in = Minecraft.getInstance().getResourceManager().open(src)) {
+            img = NativeImage.read(NativeImage.Format.RGBA, in);
+        } catch (Exception ex) {
+            img = new NativeImage(NativeImage.Format.RGBA, 4, 2, false);
+            img.fillRect(0, 0, 4, 2, alphaFromLuma ? 0 : 0xFF804020);
+        }
+        if (alphaFromLuma) {
+            for (int y = 0; y < img.getHeight(); y++) for (int x = 0; x < img.getWidth(); x++) {
+                int c = img.getPixelRGBA(x, y);
+                int lum = ((c & 0xFF) * 3 + ((c >> 8) & 0xFF) * 5 + ((c >> 16) & 0xFF) * 2) / 10;
+                img.setPixelRGBA(x, y, (lum << 24) | 0xFFFFFF);
             }
-            float depth = Mth.clamp((0.53F - n) * 4F, 0F, 1F);
-            return rgb(Mth.lerp(depth, 0.10F, 0.03F), Mth.lerp(depth, 0.30F, 0.12F), Mth.lerp(depth, 0.55F, 0.35F), 1F);
-        });
-        reg(EARTH_CLOUDS, 512, 256, (x, y, w, h) -> {
-            float n = fbm(x / 512F * 8F, y / 256F * 4F, 6, 8, 91);
-            return gray(1F, Mth.clamp((n - 0.5F) * 3F, 0F, 0.9F));
-        });
+        }
+        int levels = Math.max(0, Math.min(6, Integer.numberOfTrailingZeros(Math.min(img.getWidth(), img.getHeight())) - 1));
+        Minecraft.getInstance().getTextureManager().register(loc, new MipTexture(img, levels));
+    }
+
+    /** Mipmap'li, tekrarli (boylam sarmasi icin), yumusak filtreli doku. */
+    private static final class MipTexture extends net.minecraft.client.renderer.texture.AbstractTexture {
+        MipTexture(NativeImage base, int levels) {
+            NativeImage[] mips = net.minecraft.client.renderer.texture.MipmapGenerator.generateMipLevels(new NativeImage[]{base}, levels);
+            com.mojang.blaze3d.platform.TextureUtil.prepareImage(getId(), levels, base.getWidth(), base.getHeight());
+            for (int i = 0; i <= levels; i++) {
+                mips[i].upload(i, 0, 0, 0, 0, mips[i].getWidth(), mips[i].getHeight(), true, false, levels > 0, true);
+            }
+        }
+
+        @Override
+        public void load(net.minecraft.server.packs.resources.ResourceManager rm) {}
     }
 
     private interface Px { int at(int x, int y, int w, int h); }

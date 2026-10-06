@@ -31,17 +31,25 @@ public final class UltPoses {
     static final float[] PUNCH_COCK = p(12, -28, -0.10F, -6, 18, 0, -145, 0, 28, -65, 20, 0, -25, 0, 6, 25, 0, -6);
     static final float[] PUNCH_RELEASE = p(18, 24, -0.12F, -10, -18, 0, -95, -12, 0, 45, 0, -12, 32, 0, 0, -40, 0, 0);
     static final float[] FINISH_POSE = p(-4, 30, 0, 5, -20, 0, -150, 0, -22, 22, 0, 28, 8, 0, 0, -62, 0, -6);
-    /** SPRINT isareti: tablo yerine dongu. */
+    /** SPRINT isareti: tablo yerine dongu (kadans zamanla degisir, bkz. runPhase). */
     private static final float[] SPRINT = new float[N];
-    private static final float[] SPRINT_FAST = new float[N];
 
-    /** {start, end, blend} + poz. */
+    /** {start, end, blend} + poz. Zamanlar UltimatePhase'e goreli. */
     private static final float[][] ROWS = {
-            {0, 4, 0}, {4, 22, 3}, {22, 25, 2}, {25, 28, 1}, {28, 40, 2}, {40, 55, 0}, {55, 61, 2}, {61, 66, 0},
-            {66, 82, 2}, {140, 146, 0}, {146, 150, 3}, {150, 158, 3}, {158, 162, 1}, {162, 196, 6}};
+            {0, 6, 0}, {6, 30, 3}, {30, 34, 2}, {34, 38, 1}, {38, 262, 2},
+            {262, 270, 0}, {270, 276, 3}, {276, 290, 3}, {290, 294, 1}, {294, 330, 6}};
     private static final float[][] POSES = {
-            IDLE_LOCK, CHARGE_ROAR, DASH_LEAN, DASH_STRIKE, DASH_LEAN, SPRINTER_CROUCH, PUSH_OFF, SPRINTER_SET,
-            SPRINT, SPRINT_FAST, CHARGE_CROUCH, PUNCH_COCK, PUNCH_RELEASE, FINISH_POSE};
+            IDLE_LOCK, CHARGE_ROAR, DASH_LEAN, DASH_STRIKE, SPRINT,
+            SPRINT, CHARGE_CROUCH, PUNCH_COCK, PUNCH_RELEASE, FINISH_POSE};
+    /** Vanilla'ya donus penceresi (RECOVER sonu). */
+    private static final float FADE_START = 330F, FADE_END = UltimatePhase.DURATION;
+
+    /**
+     * Kosu kadansi (adim/sn) dugumleri {t, hz}; aralarda dogrusal. DEPART'ta hizli kacis, VOID'de surekli kosu ve
+     * hizlanma (bekleme/comelme yok), okyanusta sabit, tunelde en hizli.
+     */
+    private static final float[][] CADENCE = {
+            {30, 5.5F}, {52, 5.0F}, {70, 6.5F}, {96, 10.5F}, {122, 9.0F}, {262, 9.0F}, {270, 11F}};
 
     private static final float[] A = new float[N], B = new float[N];
 
@@ -57,11 +65,9 @@ public final class UltPoses {
         for (int i = 0; i < ROWS.length; i++) if (vt >= ROWS[i][0] && vt < ROWS[i][1]) r = i;
         float weight = 1F;
         if (r < 0) {
-            if (vt >= 196F && vt < 200F) { // vanilla'ya 4 tick'te don
+            if (vt >= FADE_START && vt < FADE_END) { // vanilla'ya don
                 r = ROWS.length - 1;
-                weight = 1F - smooth((vt - 196F) / 4F);
-            } else if (vt >= 82F && vt < 140F) {
-                r = 8; // sahnede model yok (okyanus/yorunge); son kosu pozu
+                weight = 1F - smooth((vt - FADE_START) / (FADE_END - FADE_START));
             } else {
                 return 0F;
             }
@@ -75,39 +81,49 @@ public final class UltPoses {
                 lerp(A, B, smooth((vt - (ns - bl)) / bl), out);
             }
         }
-        if (smallTarget && r == 12) out[RAX] = -60F;
+        if (smallTarget && r == 8) out[RAX] = -60F;
         return weight;
     }
 
     private static void rowPose(int r, float t, float[] out) {
         float[] src = POSES[r];
-        if (src == SPRINT || src == SPRINT_FAST) {
-            sprint(t, src == SPRINT_FAST, out);
+        if (src == SPRINT) {
+            sprint(t, out);
             return;
         }
         System.arraycopy(src, 0, out, 0, N);
-        if (r == 5) out[RY] += 0.01F * Mth.sin((t - 40F) / 20F * 1.5F * ((float) (Math.PI * 2.0))); // comelmede nefes
     }
 
-    /** Analitik kosu dongusu (geri sarmaya uygun): VOID'da 66->78 arasi 2.5 Hz'den 9 Hz'e, tunelde 10 Hz. */
-    public static void sprint(float t, boolean fast, float[] out) {
-        double ph;
-        if (fast) {
-            ph = Math.PI * 2 * 10.0 * Math.max(0F, t - 140F) / 20.0;
-        } else {
-            double tau = Math.max(0F, t - 66F) / 20.0, T = 0.6, f0 = 2.5, f1 = 9.0;
-            ph = tau < T ? Math.PI * 2 * (f0 * tau + (f1 - f0) * tau * tau / (2 * T))
-                    : Math.PI * 2 * (f0 * T + (f1 - f0) * T / 2 + f1 * (tau - T));
+    /** Kosu fazi (radyan): kadansin analitik integrali -> adimlar hic sicramaz, geri sarmaya uygun. */
+    public static double runPhase(float t) {
+        double ph = 0;
+        float[][] K = CADENCE;
+        if (t <= K[0][0]) return Math.PI * 2 * K[0][1] * (t - K[0][0]) / 20.0;
+        for (int i = 0; i + 1 < K.length; i++) {
+            float t0 = K[i][0], t1 = K[i + 1][0];
+            if (t <= t0) break;
+            float te = Math.min(t, t1);
+            float u = (te - t0) / (t1 - t0);
+            float hzEnd = K[i][1] + (K[i + 1][1] - K[i][1]) * u;
+            ph += Math.PI * 2 * (K[i][1] + hzEnd) * 0.5 * (te - t0) / 20.0;
         }
+        float[] last = K[K.length - 1];
+        if (t > last[0]) ph += Math.PI * 2 * last[1] * (t - last[0]) / 20.0;
+        return ph;
+    }
+
+    /** Analitik kosu dongusu; govde one egik, kollar/bacaklar genis acili (hizli kosu). */
+    public static void sprint(float t, float[] out) {
+        double ph = runPhase(t);
         float s = (float) Math.sin(ph);
         java.util.Arrays.fill(out, 0F);
-        out[RP] = 30F + 4F * (float) Math.sin(2 * ph);
-        out[RY] = -0.04F + 0.05F * Math.abs(s);
-        out[HX] = -25F;
-        out[RLX] = 70F * s;
-        out[LLX] = -70F * s;
-        out[RAX] = -85F * s;
-        out[LAX] = 85F * s;
+        out[RP] = 32F + 4F * (float) Math.sin(2 * ph);
+        out[RY] = -0.04F + 0.06F * Math.abs(s);
+        out[HX] = -28F;
+        out[RLX] = 72F * s;
+        out[LLX] = -72F * s;
+        out[RAX] = -88F * s;
+        out[LAX] = 88F * s;
         out[RAZ] = 8F;
         out[LAZ] = -8F;
     }

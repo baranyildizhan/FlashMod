@@ -51,7 +51,10 @@ public final class SpeedFx {
     private static void tickPlayer(Minecraft mc, ClientLevel level, Player p, ClientSpeedsters.Entry e, long now) {
         // Blitz/tornado'da model gercek konumundan uzakta cizilir; gercek konum kadraj disindayken frustum
         // elemesi modeli (ve onu izleyen simsekleri) yok etmesin.
-        p.noCulling = e.blitz || e.tornado;
+        dev.baranhan.flashmod.client.ultimate.UltState ult = dev.baranhan.flashmod.client.ultimate.UltDirector.forCaster(p.getId());
+        float ut = ult != null && ult.abortAt < 0 ? ult.t(0F) : -1F;
+        boolean ultActive = ut >= 0F && ut < dev.baranhan.flashmod.ultimate.UltimatePhase.DURATION;
+        p.noCulling = e.blitz || e.tornado || ultActive;
         double x = p.getX(), y = p.getY(), z = p.getZ();
         e.prevSpeed = e.speed;
         if (!e.hasLast) {
@@ -123,6 +126,26 @@ public final class SpeedFx {
             BlitzClient.tick(level, p, e, now);
         }
 
+        // --- Ultimate: DEPART'ta govde proxy yolunda cizilir, iz noktalari da oradan; sahnelerde (govde gizli) iz yok
+        boolean ultHidden = ultActive && dev.baranhan.flashmod.ultimate.UltimatePhase.bodyHidden(ut);
+        if (ultActive && ut >= dev.baranhan.flashmod.ultimate.UltimatePhase.DEPART.start
+                && ut < dev.baranhan.flashmod.ultimate.UltimatePhase.DEPART.end) {
+            float step = 1F / ult.scale;
+            Vec3 a = ult.arena.toWorld(dev.baranhan.flashmod.client.ultimate.UltRender.proxyArena(ut, ult.arena.d));
+            Vec3 b = ult.arena.toWorld(dev.baranhan.flashmod.client.ultimate.UltRender.proxyArena(ut - step, ult.arena.d));
+            x = a.x; y = a.y; z = a.z;
+            dx = a.x - b.x; dy = a.y - b.y; dz = a.z - b.z;
+            dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
+            double h2 = Math.sqrt(dx * dx + dz * dz);
+            e.speed = e.prevSpeed + ((float) dist - e.prevSpeed) * 0.6F;
+            e.hSpeed = (float) h2;
+            if (h2 > 0.01D) {
+                e.dirX = (float) (dx / h2);
+                e.dirZ = (float) (dz / h2);
+            }
+            e.odometer += dist;
+        }
+
         // Duvarda kosma: donus karisimi (render'da enterpole) ve bacak hizi (yatay hiz ~0, dikey hiz kullanilir)
         e.prevWallBlend = e.wallBlend;
         e.wallBlend = Mth.clamp(e.wallBlend + (e.wallRun ? 0.2F : -0.2F), 0F, 1F);
@@ -165,7 +188,7 @@ public final class SpeedFx {
 
         boolean visible = !p.isSpectator() && (mc.player == null || !p.isInvisibleTo(mc.player));
 
-        if (e.active && visible && dist > 0.05D) {
+        if (e.active && visible && dist > 0.05D && !ultHidden) {
             float power = ClientSpeedsters.powerFor(e.speed);
             // duvarda: omurga ayak noktasindan (pivot) gecer
             double ox = -e.wallNx * 0.3D * wb, oy = 0.9D * wb, oz = -e.wallNz * 0.3D * wb;
@@ -193,7 +216,7 @@ public final class SpeedFx {
         float intensity = e.intensity(1F);
 
         // --- Ses duvarlari (kademeli) ---
-        if (e.tornado || e.blitz) {
+        if (e.tornado || e.blitz || ultActive) {
             // Tornadoda / Blitz sinematiginde otomatik patlama yok; gecilen esikleri sessizce isaretle ki tornado bitince ani bir patlama olmasin.
             while (e.boomStage < BOOM_THRESHOLDS.length && e.speed >= BOOM_THRESHOLDS[e.boomStage]) e.boomStage++;
         } else if (e.boomStage < BOOM_THRESHOLDS.length && e.speed >= BOOM_THRESHOLDS[e.boomStage]) {
