@@ -9,8 +9,6 @@ import net.minecraft.world.entity.player.Player;
 import net.minecraft.world.phys.Vec3;
 
 import javax.annotation.Nullable;
-import java.util.ArrayList;
-import java.util.List;
 
 /** Istemcideki bir ultimate oturumu (tam sinematik ya da izleyici). */
 public final class UltState {
@@ -29,11 +27,16 @@ public final class UltState {
     /** Ilk vurusta hedefin ileri kayma mesafesi; hedefin baslangic konumu (gorsel itme duzeltmesi icin). */
     public final float push;
     public final Vec3 targetBase;
+    /** Final geometrisi (sunucuyla ayni betik). */
+    public final dev.baranhan.flashmod.ultimate.UltimateScript.Path path;
     public Vec3 lastTargetPos;
     /** Bizim iz sistemimizle cizilen sentetik izler: sahnedeki kosucu ve firlatilan hedef. */
     public final dev.baranhan.flashmod.client.ClientSpeedsters.Entry sceneTrail, targetTrail;
 
-    // zaman
+    // zaman: yerel tick sayaci (sunucu saat paketleri her saniye oyun zamanini +-1 tick oynatir; animasyon
+    // ona bagli olsaydi kamera saniyede bir takilirdi). Sunucu zamanindan kalici sapma yavasca duzeltilir.
+    private long clock;
+    private int skewTicks;
     public float previewT;
     public boolean paused;
     public float lastTickT = -999F;
@@ -51,10 +54,6 @@ public final class UltState {
     /** SCENE fazinda sahne kamera konumu (sahne uzayi) ve bakisi. */
     public Vec3 sceneCam = Vec3.ZERO;
 
-    public record Crash(Vec3 pos, float nx, float ny, float nz, boolean slam, long gameTime) {}
-
-    public final List<Crash> crashes = new ArrayList<>();
-
     public UltState(UltimateStartPacket m) {
         this.id = m.sessionId;
         this.casterId = m.casterId;
@@ -69,12 +68,15 @@ public final class UltState {
         this.youAreTarget = m.youAreTarget;
         this.preview = m.preview;
         this.full = m.fullCinematic;
+        Minecraft mc = Minecraft.getInstance();
+        this.clock = mc.level != null ? mc.level.getGameTime() - startGameTime : 0L;
         LivingEntity t = target();
         this.targetW = t != null ? t.getBbWidth() : 0.6F;
         this.targetH = t != null ? t.getBbHeight() : 1.8F;
         this.contactY = targetH > 2.2F ? targetH * 0.6F : (targetH < 1.0F ? Math.max(0.4F, targetH * 0.6F) : 1.35F);
         this.push = m.push;
-        this.tracks = UltCamera.build(arena.d, push, targetW);
+        this.path = new dev.baranhan.flashmod.ultimate.UltimateScript.Path(push, m.fly, targetH);
+        this.tracks = UltCamera.build(arena.d, path, targetW);
         this.lastTargetPos = t != null ? t.position() : arena.toWorld(0, 0, arena.d);
         this.targetBase = lastTargetPos;
         this.sceneTrail = dev.baranhan.flashmod.client.ClientSpeedsters.synthetic(seed ^ 0x51A7L, core, glow);
@@ -97,12 +99,24 @@ public final class UltState {
         return e instanceof LivingEntity le ? le : null;
     }
 
-    /** Ultimate tick'i (ondalikli). Onizlemede yerel saat, yoksa sunucu oyun zamani. */
+    /** Ultimate tick'i (ondalikli). Onizlemede yerel saat, yoksa sunucu zamanina kilitli yerel sayac. */
     public float t(float pt) {
         if (preview) return previewT + (paused ? 0F : pt);
-        Minecraft mc = Minecraft.getInstance();
-        if (mc.level == null) return -1F;
-        return ((mc.level.getGameTime() - startGameTime) + pt) / scale;
+        return (clock + pt) / scale;
+    }
+
+    /** Her istemci tick'inde bir: yerel sayaci ilerletir; sunucu zamanindan >3 tick saparsa atlar, kucuk kalici sapmayi 10 tick'te bir 1 tick duzeltir. */
+    public void advanceClock(long gameTime) {
+        clock++;
+        long d = (gameTime - startGameTime) - clock;
+        if (Math.abs(d) > 3) {
+            clock += d;
+            skewTicks = 0;
+        } else if (d != 0) {
+            if (++skewTicks >= 10) { clock += Long.signum(d); skewTicks = 0; }
+        } else {
+            skewTicks = 0;
+        }
     }
 
     /** Hedefin bu t'deki arena mesafesi (ilk vurusla ileri kayar). */
@@ -113,6 +127,16 @@ public final class UltState {
     /** Ikinci vurusun temas noktasi (dunya): itilmis hedefin gogsu. */
     public Vec3 contact() {
         return arena.toWorld(0D, contactY, arena.d + push - 0.25D);
+    }
+
+    /** Hedefin betikteki dunya konumu (ayaklar): itme, havaya kalkis, asili kalma, cakilma. */
+    public Vec3 targetScripted(float t) {
+        return targetBase.add(path.targetOffset(arena.fx, arena.fz, t));
+    }
+
+    /** Flash'in havadaki/inisteki dunya konumu (AIR_BLINK'ten itibaren). */
+    public Vec3 casterAir(float t) {
+        return targetBase.add(path.casterOffset(arena.fx, arena.fz, t));
     }
 
     /** t anindaki temas noktasi (ilk vurusta itme oncesi/sirasi icin). */

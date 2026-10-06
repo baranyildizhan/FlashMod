@@ -30,8 +30,7 @@ public final class FlashServerConfig {
     public static final ForgeConfigSpec.DoubleValue ULT_HIT2_BASE;
     public static final ForgeConfigSpec.DoubleValue ULT_HIT2_PERCENT;
     public static final ForgeConfigSpec.DoubleValue ULT_HIT2_MAX;
-    public static final ForgeConfigSpec.DoubleValue ULT_LAUNCH_H;
-    public static final ForgeConfigSpec.DoubleValue ULT_LAUNCH_V;
+    public static final ForgeConfigSpec.DoubleValue ULT_HIT3;
     public static final ForgeConfigSpec.DoubleValue ULT_CRASH_DAMAGE;
     public static final ForgeConfigSpec.BooleanValue ULT_CRASH_BREAKS;
     public static final ForgeConfigSpec.DoubleValue ULT_CRASH_HARDNESS;
@@ -92,10 +91,9 @@ public final class FlashServerConfig {
         ULT_HIT2_BASE = b.defineInRange("hit2BaseDamage", 16.0D, 0.0D, 1000.0D);
         ULT_HIT2_PERCENT = b.defineInRange("hit2PercentMaxHealth", 0.10D, 0.0D, 1.0D);
         ULT_HIT2_MAX = b.defineInRange("hit2MaxDamage", 32.0D, 0.0D, 10000.0D);
-        ULT_LAUNCH_H = b.comment("Launch speed, blocks/tick.").defineInRange("launchHorizontal", 3.2D, 0.0D, 20.0D);
-        ULT_LAUNCH_V = b.defineInRange("launchVertical", 0.55D, 0.0D, 5.0D);
+        ULT_HIT3 = b.comment("Damage of the mid-air punch that slams the target down.").defineInRange("hit3Damage", 8.0D, 0.0D, 1000.0D);
         ULT_CRASH_DAMAGE = b.defineInRange("crashDamage", 3.0D, 0.0D, 1000.0D);
-        ULT_CRASH_BREAKS = b.comment("Crash breaks soft blocks (also needs the mobGriefing gamerule).")
+        ULT_CRASH_BREAKS = b.comment("The final slam breaks soft blocks under the target (also needs the mobGriefing gamerule).")
                 .define("crashBreaksBlocks", false);
         ULT_CRASH_HARDNESS = b.defineInRange("crashMaxHardness", 3.0D, 0.0D, 100.0D);
         ULT_TARGET_SEES = b.comment("A targeted player sees the full cinematic too.").define("targetSeesCinematic", true);

@@ -11,15 +11,18 @@ import org.joml.Matrix4f;
  * OCEAN: gun batiminda acik denizde su ustunde kosu. Su duz bir duzlem (kure degil); kamera alcaktan takip eder,
  * director ufku sol alttan sag uste egik ve su alani ekranin ~%40'i olacak sekilde pitch/roll'u hesaplar.
  * Arka plan tam kure (gercek dunya hicbir aciyla gorunmez). Su: dunyaya sabit dalgalar, Fresnel'li gok yansimasi,
- * gunes parlamasi. Kosucunun ayaklarindan V seklinde su duvarlari, arkasinda kopuk izi, sicrayan damlalar,
- * her adimda kucuk halkalar ve bizim simsek izimiz. Sonda hizlanip ufukta gokyuzune firlar.
+ * gunes parlamasi. Kosucunun ayaklarindan iki yana acilan buyuk V su perdeleri (yat dalgasi gibi), arkasinda
+ * kopuk izi, perde tepelerinde su sisi, adim halkalari ve bizim simsek izimiz. Kamera sona kadar kosucuyla gider
+ * (kosucu ufka dogru kayip yukari tirmanmis gibi gorunmez).
  */
 public final class UltOceanScene implements UltScene.Scene {
     private static final Lightning.Rng R = new Lightning.Rng(808);
     private static final float T0 = UltimatePhase.OCEAN.start, T1 = UltimatePhase.OCEAN.end;
     /** Gunes: ekranin sag ust tarafinda (kosu yonu +Z, sol = +X), ufka yakin. */
     private static final Vec3 SUN = new Vec3(-0.42, 0.10, 1.0).normalize();
-    private static final float RUN = 2.4F, ACCEL_T = 160F, RISE_T = 172F;
+    private static final float RUN = 2.4F;
+    /** Kosucu bir anda hizlanip ufka firlar (kamera durur, kosucu su ustunde uzaklasir; run out sesi). */
+    public static final float DASH_T = 160F;
     private static final double FAR = 3500.0;
     private static final int DEEP = 0x07202F, SHALLOW = 0x134A5E, HORIZON = 0xF2C9A0, HAZE = 0xC89A86;
     /** Ufka yakin suyun rengi (pus): gok kubbenin ufuk alti da bu renkle baslar. */
@@ -30,16 +33,15 @@ public final class UltOceanScene implements UltScene.Scene {
     // ---------------------------------------------------------------- kosucu
 
     static double runnerZ(float t) {
-        if (t <= ACCEL_T) return RUN * (t - T0);
-        double base = RUN * (ACCEL_T - T0), u = t - ACCEL_T;
-        // ACCEL_T'den sonra ivmelenme: v = RUN + 0.35 u^2 (blok/tick)
-        return base + RUN * u + 0.35 * u * u * u / 3.0;
+        if (t <= DASH_T) return RUN * (t - T0);
+        double base = RUN * (DASH_T - T0), u = t - DASH_T;
+        // DASH_T'den sonra ivmelenme: v = RUN + 0.14 u^2 (blok/tick); sahne sonuna kadar ufukta parlayan iz olarak gorunur
+        return base + RUN * u + 0.14 * u * u * u / 3.0;
     }
 
+    /** Kosucu hep su ustunde kalir (ufka dogru yukselmez). */
     static double runnerY(float t) {
-        if (t <= RISE_T) return 0.0;
-        double u = t - RISE_T;
-        return 0.12 * u * u * u; // ufukta gokyuzune firlar
+        return 0.0;
     }
 
     static final UltScene.TrailPath PATH = new UltScene.TrailPath() {
@@ -269,7 +271,6 @@ public final class UltOceanScene implements UltScene.Scene {
         float t = c.vt;
         double hz = runnerZ(t), hy = runnerY(t);
         float lift = (float) Mth.clamp(1.0 - hy / 3.0, 0.0, 1.0); // havalaninca su efektleri soner
-        double tan = Math.tan(Math.toRadians(19.5));
         int stride = c.quality < 0.5F ? 2 : 1;
         // kopuk izi: kosucunun arkasinda genisleyen beyaz serit (dunyaya sabit doku)
         BufferBuilder fo = UltDraw.begin(UltTextures.FOAM, UltDraw.Blend.ALPHA, false, false); // dalga tepeleri kesmesin
@@ -288,70 +289,162 @@ public final class UltOceanScene implements UltScene.Scene {
             prevS = s;
         }
         UltDraw.end();
-        // V sprey perdeleri: ayaklarin hemen arkasindan iki yana acilan, gunes isigini yakalayan su perdeleri.
-        // Eklemeli: parlak arka plan (gunes yolu) ustunde gri bir levha gibi durmaz, sadece parlatir.
-        BufferBuilder b = UltDraw.begin(UltTextures.FOAM_V, UltDraw.Blend.ADD, false, false); // dalga tepeleri kesmesin
+        // V su duvarlari: ayaklardan iki yana acilan, kosucunun arkasinda yukselip genisleyen buyuk su perdeleri
+        // (yat dalgasi gibi). Dokusu dunyaya sabit: perde kosucuyla gider, icindeki su akar.
+        int segs = Math.max(20, (int) (44 * c.quality));
+        BufferBuilder b = UltDraw.begin(UltTextures.SPRAY, UltDraw.Blend.ALPHA, false, false);
+        for (int layer = 0; layer < 3; layer++) { // arkadan one: dis/yuksek, orta, ic/alcak
+            for (int side = -1; side <= 1; side += 2) {
+                // gunes sag tarafta (side -1): o perde sicak ve parlak, oteki serin beyaz
+                int col = side < 0 ? UltDraw.mix(0xFFFFFF, 0xFFD6A8, 0.45F - layer * 0.12F)
+                        : UltDraw.mix(0xF6FAFF, 0xFFE2C4, 0.3F - layer * 0.1F);
+                wallStrip(b, m, side, layer, hz, t, segs, UltDraw.r(col), UltDraw.g(col), UltDraw.b(col), lift, 1F);
+            }
+        }
+        UltDraw.end();
+        // gunes tarafindaki perdenin parlayan kenari (eklemeli)
+        b = UltDraw.begin(UltTextures.SPRAY, UltDraw.Blend.ADD, false, false);
+        wallStrip(b, m, -1, 1, hz, t, segs, 1F, 0.78F, 0.55F, lift, 0.35F);
+        wallStrip(b, m, 1, 1, hz, t, segs, 0.85F, 0.75F, 0.7F, lift, 0.18F);
+        UltDraw.end();
+        // perdelerin dibinde kopuk seridi (perde ile su arasindaki keskin cizgiyi yumusatir)
+        b = UltDraw.begin(UltTextures.FOAM, UltDraw.Blend.ALPHA, false, false);
         for (int side = -1; side <= 1; side += 2) {
-            int col = side < 0 ? 0xCFE2EC : UltDraw.mix(0xCFE2EC, 0xFFC890, 0.5F); // gunes tarafi sicak
-            float cr = UltDraw.r(col), cg = UltDraw.g(col), cb = UltDraw.b(col);
             double ps = -1;
-            for (int i = 0; i <= 14; i += stride) {
-                double s = 0.3 + i * 0.85;
+            for (int i = 0; i <= segs; i++) {
+                double s = 0.12 + (WALL_LEN - 0.12) * Math.pow(i / (double) segs, 1.7);
                 if (ps >= 0) {
-                    wall(b, m, side, hz, ps, s, tan, t, cr, cg, cb, lift);
+                    double x0 = side * (0.22 + ps * V_TAN), x1 = side * (0.22 + s * V_TAN);
+                    double w0 = 0.3 + ps * 0.06, w1 = 0.3 + s * 0.06;
+                    float a0 = (float) (0.8 * fadeAlong(ps)) * lift, a1 = (float) (0.8 * fadeAlong(s)) * lift;
+                    double z0 = hz - ps, z1 = hz - s;
+                    UltDraw.v(b, m, x0 - side * w0, 0.05, z0, (float) (x0 / 5), (float) (z0 / 5), 1F, 1F, 1F, 0F);
+                    UltDraw.v(b, m, x1 - side * w1, 0.05, z1, (float) (x1 / 5), (float) (z1 / 5), 1F, 1F, 1F, 0F);
+                    UltDraw.v(b, m, x1, 0.05, z1, (float) ((x1 + 1) / 5), (float) (z1 / 5), 1F, 1F, 1F, a1);
+                    UltDraw.v(b, m, x0, 0.05, z0, (float) ((x0 + 1) / 5), (float) (z0 / 5), 1F, 1F, 1F, a0);
                 }
                 ps = s;
             }
         }
         UltDraw.end();
-        // sicrayan damlalar: her adimda ayaktan geriye/yukari firlayan damlalar (analitik balistik)
-        BufferBuilder sp = UltDraw.begin(UltTextures.GLOW, UltDraw.Blend.ALPHA, false, false); // dalga tepeleri kesmesin
+        // perde tepelerinden disari savrulan ince serpinti (cok kucuk, yogun: sis gibi okunur)
+        b = UltDraw.begin(UltTextures.GLOW, UltDraw.Blend.ALPHA, false, false);
+        int mistN = Math.max(60, (int) (220 * c.quality));
+        for (int i = 0; i < mistN; i++) {
+            R.seed(c.s.seed ^ 0x5B4AL, i, 9);
+            int side = (i & 1) == 0 ? -1 : 1;
+            float life = 8F + 6F * R.next(), age = (t + R.next() * life) % life;
+            double s = 0.8 + R.next() * (WALL_LEN * 0.65);
+            double h = wallH(s, t, side);
+            double up = h * (0.75 + 0.3 * R.next()) + age * 0.05, out = h * 0.5 + age * (0.06 + 0.08 * R.next());
+            double x = side * (0.22 + s * V_TAN + out), z = hz - s;
+            float u = age / life, size = (float) (0.08 + 0.12 * R.next() + 0.004 * s);
+            UltDraw.billboard(b, m, x, up - age * age * 0.004, z, c.right, c.up, size, size, 0F,
+                    side < 0 ? 0xFFF0DC : 0xF4F8FF, (float) (0.75 * (1F - u) * fadeAlong(s)) * lift);
+        }
+        UltDraw.end();
+        // perdelerin tepesinde ve dibinde savrulan su sisi
+        BufferBuilder mist = UltDraw.begin(UltTextures.CLOUD, UltDraw.Blend.ALPHA, false, false);
+        int puffs = Math.max(6, (int) (12 * c.quality));
+        for (int side = -1; side <= 1; side += 2) {
+            for (int i = 0; i < puffs; i++) {
+                R.seed(c.s.seed ^ 0x3157L, i, side + 5);
+                double s = 1.0 + (WALL_LEN - 4.0) * (i + R.next() * 0.8) / puffs;
+                double h = wallH(s, t, side);
+                double x = side * (0.25 + s * V_TAN + h * 0.55), z = hz - s;
+                float size = (float) (1.2 + h * 0.55 + R.next());
+                float a = (float) (0.13 * fadeAlong(s)) * lift;
+                UltDraw.billboard(mist, m, x, h * (0.8 + 0.2 * R.next()), z, c.right, c.up, size * 1.4F, size, R.next() * 6F,
+                        side < 0 ? 0xFFE8D0 : 0xEAF2F8, a);
+            }
+        }
         double ph = UltPoses.runPhase(t) / Math.PI; // her yarim dongu bir adim
         long step = (long) Math.floor(ph);
-        int drops = Math.max(6, (int) (16 * c.quality));
-        for (long st = step; st > step - 8; st--) {
-            float born = t - (float) ((ph - st) * Math.PI / (2 * Math.PI * 9.0 / 20.0)); // ~9 Hz kadans
+        for (long st = step; st > step - 6; st--) { // ayak dibinde kabaran su
+            float born = t - (float) ((ph - st) * Math.PI / (2 * Math.PI * 9.0 / 20.0));
             float life = t - born;
-            if (life < 0F || life > 14F) continue;
-            double fz = runnerZ(born), fx = (st % 2 == 0 ? 0.12 : -0.12);
-            R.seed(c.s.seed ^ 0xD20FL, st, 1);
-            for (int k = 0; k < drops; k++) {
-                double vx = R.signed() * 0.18, vy = 0.25 + R.next() * 0.35, vz = -RUN * (0.15 + 0.25 * R.next());
-                double px = fx + vx * life, py = vy * life - 0.04 * life * life, pz = fz + vz * life;
-                if (py < -0.1) continue;
-                float a = (1F - life / 14F) * 0.85F * lift;
-                float size = 0.22F + 0.6F * (life / 14F);
-                UltDraw.billboard(sp, m, px, py, pz, c.right, c.up, size, size, 0F, 0xF4FAFF, a);
-            }
-            // adim halkasi (suya basilan yer)
-            if (life < 10F) {
-                float u = life / 10F;
-                ringOnWater(sp, m, fx, fz, 0.2 + 1.4 * u, (1F - u) * 0.6F * lift);
-            }
+            if (life < 0F || life > 12F) continue;
+            R.seed(c.s.seed ^ 0x3158L, st, 2);
+            double px = (st % 2 == 0 ? 0.2 : -0.2) + R.signed() * 0.3, pz = runnerZ(born) - 0.3 - life * 0.15;
+            float u = life / 12F, size = 0.9F + 2.4F * u;
+            UltDraw.billboard(mist, m, px, 0.25 + 0.5 * u, pz, c.right, c.up, size, size * 0.7F, R.next() * 3F, 0xF4F8FF,
+                    0.35F * (1F - u) * lift);
+        }
+        UltDraw.end();
+        // suya basilan yerde halkalar
+        BufferBuilder rg = UltDraw.begin(UltTextures.GLOW, UltDraw.Blend.ALPHA, false, false);
+        for (long st = step; st > step - 6; st--) {
+            float born = t - (float) ((ph - st) * Math.PI / (2 * Math.PI * 9.0 / 20.0));
+            float life = t - born;
+            if (life < 0F || life > 10F) continue;
+            float u = life / 10F;
+            ringOnWater(rg, m, st % 2 == 0 ? 0.12 : -0.12, runnerZ(born), 0.2 + 1.4 * u, (1F - u) * 0.6F * lift);
         }
         UltDraw.end();
     }
 
-    /** Bir V duvarinin s0..s1 arasi parcasi: tabanda yogun, tepeye dogru seffaf; geride alcalir. */
-    private static void wall(BufferBuilder b, Matrix4f m, int side, double hz, double s0, double s1, double tan, float t,
-                             float cr, float cg, float cb, float lift) {
-        double w0 = 0.25 + s0 * tan, w1 = 0.25 + s1 * tan;
-        double h0 = height(s0, t), h1 = height(s1, t);
-        if (h0 < 0.03 && h1 < 0.03) return;
-        double lean = 0.35; // perde disari egik
-        double z0 = hz - s0, z1 = hz - s1;
-        float a0 = (float) (0.55 * Math.exp(-s0 / 5.0)) * lift, a1 = (float) (0.55 * Math.exp(-s1 / 5.0)) * lift;
-        float vs = t * 0.08F;
-        UltDraw.v(b, m, side * w0, 0.02, z0, (float) (z0 / 3.0), 1 + vs, cr, cg, cb, a0);
-        UltDraw.v(b, m, side * w1, 0.02, z1, (float) (z1 / 3.0), 1 + vs, cr, cg, cb, a1);
-        UltDraw.v(b, m, side * (w1 + h1 * lean), h1, z1, (float) (z1 / 3.0), vs, cr, cg, cb, 0F);
-        UltDraw.v(b, m, side * (w0 + h0 * lean), h0, z0, (float) (z0 / 3.0), vs, cr, cg, cb, 0F);
+    /** V perdelerinin yari acisinin tanjanti, perde boyu ve en yuksek yeri. */
+    private static final double V_TAN = Math.tan(Math.toRadians(25.0)), WALL_LEN = 44.0, WALL_H = 6.2;
+
+    /** Perde yuksekligi: ayagin dibinde sifir, birkac blokta tepe yuksekligine cikar, en geride alcalir; dalgalanir. */
+    private static double wallH(double s, float t, int side) {
+        double rise = 1.0 - Math.exp(-s / 4.5);
+        double tail = 1.0 - smooth01((s - 26.0) / (WALL_LEN - 26.0));
+        double wob = 0.8 + 0.1 * Math.sin(s * 0.45 - t * 0.3 + side) + 0.07 * Math.sin(s * 1.3 + t * 0.5 - side)
+                + 0.05 * Math.sin(s * 3.1 - t * 0.9);
+        return WALL_H * rise * tail * wob;
     }
 
-    /** Perde yuksekligi: ayagin hemen arkasinda ~1 blok, geride hizla alcalir; hafif dalgalanma. */
-    private static double height(double s, float t) {
-        double base = 1.25 * (1.0 - Math.exp(-s / 0.6)) * Math.exp(-s / 5.5);
-        return base * (0.85 + 0.15 * Math.sin(s * 1.7 - t * 0.9));
+    /** Perdenin boyunca opaklik: ayakta yumusak baslar, sonda soner. */
+    private static double fadeAlong(double s) {
+        return smooth01(s / 0.9) * (1.0 - smooth01((s - 28.0) / (WALL_LEN - 28.0)));
+    }
+
+    private static double smooth01(double u) {
+        u = Mth.clamp(u, 0.0, 1.0);
+        return u * u * (3 - 2 * u);
+    }
+
+    /**
+     * Bir V perdesi: taban, govde ve tepe siralari; kesitte disari kivrilir (su disari savrulur). layer 0 dis/arka
+     * (genis, yuksek, seffaf), 1 orta, 2 ic/on (alcak, yogun). Tepe yari seffaf: yirtik kenari doku verir.
+     */
+    private static void wallStrip(BufferBuilder b, Matrix4f m, int side, int layer, double hz, float t, int segs, float cr,
+                                  float cg, float cb, float lift, float alphaScale) {
+        double wide = layer == 0 ? 1.12 : (layer == 1 ? 1.0 : 0.92), tall = layer == 0 ? 1.22 : (layer == 1 ? 0.95 : 0.62);
+        float alpha = (layer == 0 ? 0.5F : (layer == 1 ? 0.85F : 0.95F)) * lift * alphaScale;
+        float uOff = layer * 0.37F + (side > 0 ? 0.5F : 0F) + t * 0.006F; // perde boyunca hafif akis
+        double[] prev = null;
+        for (int i = 0; i <= segs; i++) {
+            double u = i / (double) segs;
+            double s = 0.12 + (WALL_LEN - 0.12) * Math.pow(u, 1.7);   // ayaga yakin sik
+            double h = wallH(s + layer * 1.7, t + layer * 9F, side) * tall;
+            double xb = side * (0.22 + s * V_TAN * wide), z = hz - s;
+            float a = (float) (alpha * fadeAlong(s));
+            float tu = (float) (z / (7.0 + layer * 2.0)) + uOff;
+            double[] cur = {xb, z, h, a, tu};
+            if (prev != null) {
+                for (int row = 0; row < 3; row++) {
+                    vtx(b, m, prev, side, ROW_Y[row], ROW_O[row], ROW_V[row], ROW_A[row], cr, cg, cb);
+                    vtx(b, m, cur, side, ROW_Y[row], ROW_O[row], ROW_V[row], ROW_A[row], cr, cg, cb);
+                    vtx(b, m, cur, side, ROW_Y[row + 1], ROW_O[row + 1], ROW_V[row + 1], ROW_A[row + 1], cr, cg, cb);
+                    vtx(b, m, prev, side, ROW_Y[row + 1], ROW_O[row + 1], ROW_V[row + 1], ROW_A[row + 1], cr, cg, cb);
+                }
+            }
+            prev = cur;
+        }
+    }
+
+    /** Perde kesiti: yukseklik orani, disari kivrilma (h orani), doku v, opaklik. */
+    private static final double[] ROW_Y = {0.0, 0.22, 0.62, 1.0}, ROW_O = {0.0, 0.03, 0.2, 0.6};
+    private static final float[] ROW_V = {1F, 0.8F, 0.42F, 0F}, ROW_A = {0.45F, 1F, 0.85F, 0.25F};
+
+    private static void vtx(BufferBuilder b, Matrix4f m, double[] p, int side, double yk, double outK, float v, float ak,
+                            float cr, float cg, float cb) {
+        double h = p[2];
+        float shade = (float) (0.9 + 0.1 * yk); // dipte biraz koyu (su govdesi), tepeye dogru isik alan beyaz
+        UltDraw.v(b, m, p[0] + side * h * outK, 0.02 + h * yk, p[1], (float) p[4], v, cr * shade, cg * shade, cb * shade,
+                (float) p[3] * ak);
     }
 
     private static void ringOnWater(BufferBuilder b, Matrix4f m, double x, double z, double r, float a) {
@@ -372,21 +465,9 @@ public final class UltOceanScene implements UltScene.Scene {
     @Override
     public void model(UltScene.Ctx c) {
         float t = c.vt;
-        boolean body = runnerY(t) < 2.0;
-        if (body) {
-            float sp = (float) (runnerZ(t + 0.5F) - runnerZ(t - 0.5F));
-            float spacing = Mth.clamp(0.8F / sp, 0.1F, 0.4F);
-            UltScene.drawCaster(c, PATH, 0F, true, Math.max(2, (int) (4 * c.quality)), spacing, 0.3F, 0.9F, 0F);
-        }
-        UltScene.drawTrail(c, PATH, T0 - 30F, t < RISE_T ? 16 : 22, 1F, body, 1F);
-        if (t >= ACCEL_T + 4F) { // hizlanip gokyuzune firlarken basindaki isik
-            float k = Mth.clamp((t - ACCEL_T - 4F) / 8F, 0F, 1F);
-            Vec3 h = PATH.at(t).add(0, 1.0, 0);
-            BufferBuilder b = UltDraw.begin(UltTextures.GLOW, UltDraw.Blend.ADD, true, false);
-            float d = (float) h.distanceTo(c.cam), s = Math.max(3.5F, d * 0.08F); // uzakta da secilsin
-            UltDraw.billboard(b, c.m, h.x, h.y, h.z, c.right, c.up, s * 3F, s * 3F, 0F, UltDraw.mix(0xFFC890, c.glow, 0.4F), 0.7F * k);
-            UltDraw.billboard(b, c.m, h.x, h.y, h.z, c.right, c.up, s, s, 0F, 0xFFFFFF, k);
-            UltDraw.end();
-        }
+        float sp = (float) (runnerZ(t + 0.5F) - runnerZ(t - 0.5F));
+        float spacing = Mth.clamp(0.8F / sp, 0.1F, 0.4F);
+        UltScene.drawCaster(c, PATH, 0F, true, Math.max(2, (int) (4 * c.quality)), spacing, 0.3F, 0.9F, 0F);
+        UltScene.drawTrail(c, PATH, T0 - 30F, 16, 1F, true, 1F);
     }
 }

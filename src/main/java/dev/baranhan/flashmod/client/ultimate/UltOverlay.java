@@ -45,7 +45,7 @@ public final class UltOverlay {
     /** Yatay hiz cizgileri (kacis ve bosluktaki son hizlanma). */
     private static void speedLines(GuiGraphics g, UltState s, float t, int w, int h, boolean reduce) {
         float horiz = 0F;
-        if (t >= 38F && t < UltimatePhase.DEPART.end) horiz = Mth.clamp((t - 38F) / 8F, 0F, 1F) * 0.35F;
+        if (t >= 35F && t < UltimatePhase.DEPART.end) horiz = Mth.clamp((t - 35F) / 6F, 0F, 1F) * 0.35F;
         else if (t >= 96F && t < UltimatePhase.VOID.end) horiz = Mth.clamp((t - 96F) / 14F, 0F, 1F) * 0.8F;
         if (reduce) horiz *= 0.5F;
         if (horiz <= 0.01F) return;
@@ -76,7 +76,7 @@ public final class UltOverlay {
 
     private static void combo(GuiGraphics g, float t) {
         float end = UltimatePhase.DURATION;
-        int hits = t >= UltimatePhase.HIT2 ? 2 : (t >= UltimatePhase.HIT1 ? 1 : 0);
+        int hits = t >= UltimatePhase.HIT3 ? 3 : t >= UltimatePhase.HIT2 ? 2 : (t >= UltimatePhase.HIT1 ? 1 : 0);
         if (hits == 0 || t > end) return;
         float a = t > end - 4F ? Math.max(0F, (end - t) / 4F) : 1F;
         String txt = hits + (hits == 1 ? " HIT" : " HITS");

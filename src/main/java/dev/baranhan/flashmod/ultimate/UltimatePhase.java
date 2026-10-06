@@ -15,28 +15,44 @@ public enum UltimatePhase {
     OCEAN(122, 182, Space.SCENE),
     ORBIT(182, 262, Space.SCENE),
     TUNNEL(262, 290, Space.SCENE),
-    IMPACT(290, 298, Space.ARENA),
-    LAUNCH(298, 322, Space.ARENA),
-    RECOVER(322, 336, Space.ARENA);
+    IMPACT(290, 294, Space.ARENA),
+    /** Aparkatla hedef yukari-ileri ucar, yavas cekimde asili kalir. */
+    LAUNCH(294, 310, Space.ARENA),
+    /** Flash hedefin arkasinda (ucus dogrusunun uzantisinda) belirir, yumrukla ayni dogru boyunca geri yere cakar. */
+    AIR(310, 327, Space.ARENA),
+    /** Yere carpma simsek patlamasi, Flash'in inisi. */
+    SLAM(327, 340, Space.ARENA),
+    RECOVER(340, 354, Space.ARENA);
 
     public enum Space { ARENA, SCENE }
 
     // ---------------------------------------------------------------- kritik olaylar
-    public static final int DURATION = 336;
+    public static final int DURATION = 354;
     public static final int BLINK = 1;
     /** Caster'in gercek govdesi bu andan itibaren proxy yolunda (DEPART). */
     public static final int HIDE_BODY = 30;
     /** Ilk vurus: hedef PUSH_END'e kadar ileri kayar. */
-    public static final int HIT1 = 36;
-    public static final int PUSH_END = 46;
+    public static final int HIT1 = 33;
+    public static final int PUSH_END = 43;
     /** Sahneler (dunya yerine overlay) bu aralikta. */
     public static final int SCENE_START = 52, SCENE_END = 290;
     public static final int RETURN_TP = 289;
     public static final int HIT2 = 290;
     public static final int HITSTOP_END = 294;
+    /** Hedef yukari-ileri ucar (sunucu ve istemci ayni betikle: UltimateScript). */
     public static final int LAUNCH_T = 294;
-    public static final int CRASH_END = 326;
-    public static final float HITSTOP_FREEZE = 291F;
+    /** Flash havada, hedefin arkasinda belirir. */
+    public static final int AIR_BLINK = 310;
+    /** Havadaki yumruk; HITSTOP3_END'e kadar donma, sonra hedef yere cakilir. */
+    public static final int HIT3 = 318;
+    public static final int HITSTOP3_END = 321;
+    /** Hedef yere carpar: simsek patlamasi, stasis biter. */
+    public static final int SLAM_T = 327;
+    /** Flash yere iner. */
+    public static final int CASTER_LAND = 332;
+    /** Yerde yatan hedef kalkar; stasis biter. */
+    public static final int TARGET_FREE = 346;
+    public static final float HITSTOP_FREEZE = 291F, HITSTOP3_FREEZE = 319F;
     /** Arena: caster -> hedef mesafesi (varsayilan). */
     public static final float ARENA_DISTANCE = 2.5F;
     /** Ilk vurusta hedefin en fazla ileri kaymasi (blok); sunucu carpismaya gore kisaltir. */
@@ -60,9 +76,11 @@ public enum UltimatePhase {
         return RECOVER;
     }
 
-    /** Gorsel zaman: hit-stop (HIT2-HITSTOP_END) boyunca pozlar/parcaciklar HITSTOP_FREEZE'de donar. */
+    /** Gorsel zaman: iki hit-stop boyunca pozlar/parcaciklar donar. */
     public static float visual(float t) {
-        return t >= HIT2 && t < HITSTOP_END ? Math.min(t, HITSTOP_FREEZE) : t;
+        if (t >= HIT2 && t < HITSTOP_END) return Math.min(t, HITSTOP_FREEZE);
+        if (t >= HIT3 && t < HITSTOP3_END) return Math.min(t, HITSTOP3_FREEZE);
+        return t;
     }
 
     /** Caster'in gercek govdesi dunyada gorunur mu (sahneler boyunca gizli; sahne/yorunge devralir). */

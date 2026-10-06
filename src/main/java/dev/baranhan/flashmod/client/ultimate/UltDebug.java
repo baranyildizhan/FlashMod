@@ -15,8 +15,8 @@ import org.lwjgl.glfw.GLFW;
 public final class UltDebug {
     private static final boolean[] DOWN = new boolean[GLFW.GLFW_KEY_LAST + 1];
     private static final UltimatePhase[] JUMP = {UltimatePhase.WINDUP, UltimatePhase.DEPART, UltimatePhase.VOID,
-            UltimatePhase.OCEAN, UltimatePhase.ORBIT, UltimatePhase.TUNNEL, UltimatePhase.IMPACT, UltimatePhase.LAUNCH,
-            UltimatePhase.RECOVER};
+            UltimatePhase.OCEAN, UltimatePhase.ORBIT, UltimatePhase.TUNNEL, UltimatePhase.IMPACT, UltimatePhase.AIR,
+            UltimatePhase.SLAM};
 
     private UltDebug() {}
 

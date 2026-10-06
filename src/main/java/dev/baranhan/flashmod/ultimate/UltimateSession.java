@@ -23,8 +23,7 @@ public final class UltimateSession {
     public final boolean debug;
     public final List<UUID> audience = new ArrayList<>();
 
-    public boolean blinked, hit1Done, returned, hit2Done, launched, crashed, ended;
-    public int soundMask;
+    public boolean blinked, hit1Done, returned, hit2Done, hit3Done, launched, landed, crashed, ended;
     public Vec3 lockPos;
     public float lockYaw;
     // stasis
@@ -32,11 +31,10 @@ public final class UltimateSession {
     public Vec3 freezePos;
     /** Ilk vurusta hedefin ileri kayma mesafesi (blok, carpismaya gore). */
     public float push;
+    /** Final ucus olcegi (engellere gore) ve final geometrisi (UltimateScript). */
+    public float fly = 1F;
+    public UltimateScript.Path path;
     public boolean hadNoAi, mob;
-    // carpma takibi
-    public double prevH, prevVy;
-    public long debrisAt = -1;
-    public Vec3 debrisPos;
     public Vec3 lastTargetPos;
 
     public UltimateSession(int id, UUID casterId, int targetId, UUID targetUuid, ResourceKey<Level> dimension,

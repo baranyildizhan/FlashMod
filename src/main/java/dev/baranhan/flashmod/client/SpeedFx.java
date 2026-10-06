@@ -126,13 +126,18 @@ public final class SpeedFx {
             BlitzClient.tick(level, p, e, now);
         }
 
-        // --- Ultimate: DEPART'ta govde proxy yolunda cizilir, iz noktalari da oradan; sahnelerde (govde gizli) iz yok
+        // --- Ultimate: DEPART'ta ve havadaki finalde govde betikteki yolda cizilir, iz noktalari da oradan;
+        // sahnelerde (govde gizli) iz yok
         boolean ultHidden = ultActive && dev.baranhan.flashmod.ultimate.UltimatePhase.bodyHidden(ut);
-        if (ultActive && ut >= dev.baranhan.flashmod.ultimate.UltimatePhase.DEPART.start
-                && ut < dev.baranhan.flashmod.ultimate.UltimatePhase.DEPART.end) {
+        boolean ultDepart = ultActive && ut >= dev.baranhan.flashmod.ultimate.UltimatePhase.DEPART.start
+                && ut < dev.baranhan.flashmod.ultimate.UltimatePhase.DEPART.end;
+        boolean ultAir = ultActive && ut >= dev.baranhan.flashmod.ultimate.UltimatePhase.AIR_BLINK;
+        if (ultDepart || ultAir) { // govde proxy/havadaki yolda cizilir, iz de oradan
             float step = 1F / ult.scale;
-            Vec3 a = ult.arena.toWorld(dev.baranhan.flashmod.client.ultimate.UltRender.proxyArena(ut, ult.arena.d));
-            Vec3 b = ult.arena.toWorld(dev.baranhan.flashmod.client.ultimate.UltRender.proxyArena(ut - step, ult.arena.d));
+            Vec3 a = ultAir ? ult.casterAir(ut)
+                    : ult.arena.toWorld(dev.baranhan.flashmod.client.ultimate.UltRender.proxyArena(ut, ult.arena.d));
+            Vec3 b = ultAir ? ult.casterAir(ut - step)
+                    : ult.arena.toWorld(dev.baranhan.flashmod.client.ultimate.UltRender.proxyArena(ut - step, ult.arena.d));
             x = a.x; y = a.y; z = a.z;
             dx = a.x - b.x; dy = a.y - b.y; dz = a.z - b.z;
             dist = Math.sqrt(dx * dx + dy * dy + dz * dz);
