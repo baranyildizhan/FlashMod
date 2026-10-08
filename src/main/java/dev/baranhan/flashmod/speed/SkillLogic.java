@@ -35,15 +35,15 @@ import java.util.UUID;
 
 /**
  * Sunucu tarafi yeni yetenekler:
- *  - Yuklu yumruk: Speed Force enerjisi yumrukta toplanir; tam dolu bir sol tik vurusu (dogrudan oyuncu
- *    saldirisi, savurma/tornado/blitz hasari degil) enerji harcar: ek hasar, savurma, simsek patlamasi.
+ *  - Yuklu yumruklar (ac/kapa): acikken Speed Force enerjisi yumrukta toplanir; tam dolu bir sol tik vurusu
+ *    (dogrudan oyuncu saldirisi, savurma/tornado/blitz hasari degil) enerji harcar: ek hasar, savurma, patlama.
  *  - Zaman kalintisi: hizcinin olduğu yerde donmus parlak goruntusu kalir (AfterimageEntity, dusmanlari ceker),
  *    hizci girdi yonune atilir ve kisa bir an gorunmez olur.
  *  - Geri sarma: son birkac saniyenin konum/bakis/can kaydi tutulur; kullaninca hizci kendi yolunu tersine kosar
  *    (hareketi istemcide, yol bu paketle gider), sonunda tam o anki yere oturur, can o andakine doner.
  */
 public final class SkillLogic {
-    public static final int DECOY = 0, REWIND = 1;
+    public static final int DECOY = 0, REWIND = 1, FISTS = 2;
 
     private static final class Sample {
         final double x, y, z;
@@ -64,6 +64,7 @@ public final class SkillLogic {
     }
 
     private static final class State {
+        boolean fists, sFists;
         // son sol tik (AttackEntityEvent): yalnizca bu hedefe, bu tick'te gelen hasar yumruk sayilir
         int attackTarget = -1;
         long attackTick = -1;
@@ -183,7 +184,7 @@ public final class SkillLogic {
         if (!FlashServerConfig.KINETIC_ENABLED.get() || !SpeedsterData.isActive(sp)) return;
         State s = STATES.get(sp.getUUID());
         LivingEntity t = event.getEntity();
-        if (s == null || t == sp || s.attackTarget != t.getId() || s.attackTick != sp.level().getGameTime()) return;
+        if (s == null || !s.fists || t == sp || s.attackTarget != t.getId() || s.attackTick != sp.level().getGameTime()) return;
         s.attackTarget = -1; // savurma (sweep) hasari ikinci kez tetiklemesin
         if (s.rewinding || BlitzLogic.isActive(sp) || TornadoLogic.isActive(sp) || s.attackStrength < 0.9F) return;
         float cost = FlashServerConfig.KINETIC_COST.get().floatValue();
@@ -223,6 +224,14 @@ public final class SkillLogic {
     public static void cast(ServerPlayer p, int skill, float dx, float dz) {
         State s = state(p);
         if (!SpeedsterData.isActive(p) || p.isSpectator() || !p.isAlive() || s.rewinding) return;
+        if (skill == FISTS) { // ac/kapa: diger yeteneklerin sirasinda da (Blitz/ultimate haric)
+            if (!FlashServerConfig.KINETIC_ENABLED.get() || UltimateManager.involved(p) || BlitzLogic.isActive(p)) return;
+            s.fists = !s.fists;
+            p.level().playSound(null, p.getX(), p.getY() + 1.0D, p.getZ(),
+                    s.fists ? SoundEvents.BEACON_POWER_SELECT : SoundEvents.BEACON_DEACTIVATE, SoundSource.PLAYERS, 0.6F, 1.9F);
+            sync(p, s, true);
+            return;
+        }
         if (UltimateManager.involved(p) || BlitzLogic.isActive(p) || TornadoLogic.isActive(p)) return;
         long now = p.level().getGameTime();
         if (skill == DECOY) castDecoy(p, s, now, dx, dz);
@@ -354,16 +363,18 @@ public final class SkillLogic {
 
     private static void sync(ServerPlayer p, State s, boolean force) {
         long blitz = BlitzLogic.cooldownUntil(p), ult = SpeedsterData.getUltCooldown(p);
-        boolean changed = s.sDecoy != s.decoyReady || s.sRewind != s.rewindReady || s.sBlitz != blitz || s.sUlt != ult;
+        boolean changed = s.sDecoy != s.decoyReady || s.sRewind != s.rewindReady || s.sBlitz != blitz || s.sUlt != ult
+                || s.sFists != s.fists;
         if (!force && !changed) return;
         s.sDecoy = s.decoyReady;
         s.sRewind = s.rewindReady;
         s.sBlitz = blitz;
         s.sUlt = ult;
+        s.sFists = s.fists;
         long now = p.level().getGameTime();
         int ultLeft = (int) Math.max(0, Math.min(Integer.MAX_VALUE, ult - now));
         FlashNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> p),
-                new SkillSyncPacket(p.getUUID(), (int) Math.max(0, s.decoyReady - now), s.decoyTotal,
+                new SkillSyncPacket(p.getUUID(), s.fists, (int) Math.max(0, s.decoyReady - now), s.decoyTotal,
                         (int) Math.max(0, s.rewindReady - now), s.rewindTotal,
                         (int) Math.max(0, blitz - now), BlitzLogic.cooldownTotal(),
                         ultLeft, Math.max(ultLeft, FlashServerConfig.ULT_COOLDOWN.get() * 20)));

@@ -36,6 +36,9 @@ public final class FlashKeys {
     /** Geri sarma: son birkac saniyelik yolunu tersine kosarak o ana don. */
     public static final KeyMapping REWIND = key("key.flashmod.rewind", GLFW.GLFW_KEY_O);
 
+    /** Ac/kapa: yuklu yumruklar (acikken elde enerji, sol tik vuruslari enerji harcayip patlar). */
+    public static final KeyMapping FISTS = key("key.flashmod.fists", GLFW.GLFW_KEY_I);
+
     private FlashKeys() {}
 
     private static KeyMapping key(String name, int code) {

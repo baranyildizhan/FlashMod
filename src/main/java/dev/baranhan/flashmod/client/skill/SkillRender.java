@@ -54,7 +54,7 @@ public final class SkillRender {
         boolean any = !SkillClient.HITS.isEmpty() || !SkillClient.BURSTS.isEmpty() || !SkillClient.REWINDS.isEmpty();
         if (!any) {
             for (Player p : mc.level.players()) {
-                if (SkillClient.fistCharge(ClientSpeedsters.get(p.getUUID())) > 3F) { any = true; break; }
+                if (SkillClient.fistCharge(p.getUUID(), 0F) > 3F) { any = true; break; }
             }
         }
         if (!any) return;
@@ -74,7 +74,7 @@ public final class SkillRender {
             VertexConsumer vc = buffers.getBuffer(FlashRenderTypes.ADDITIVE_GLOW);
             for (Player p : mc.level.players()) {
                 ClientSpeedsters.Entry e = ClientSpeedsters.get(p.getUUID());
-                float fist = SkillClient.fistCharge(e);
+                float fist = SkillClient.fistCharge(p.getUUID(), pt);
                 if (fist <= 3F || p.isInvisibleTo(mc.player)) continue;
                 boolean selfFp = p == mc.player && !camera.isDetached();
                 fist(vc, m, cam, p, e, fist, t, now, bloom, selfFp);

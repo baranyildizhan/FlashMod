@@ -276,11 +276,15 @@ public final class SpeedHudOverlay {
                 new Chip(dev.baranhan.flashmod.client.FlashKeys.DECOY, tr("hud.flashmod.decoy"), PRESS,
                         base && !torn && e.energy + 1.0E-3F >= decoyCost, false, si.decoyReadyAt, si.decoyTotal),
                 new Chip(dev.baranhan.flashmod.client.FlashKeys.REWIND, tr("hud.flashmod.rewind_short"), PRESS,
-                        base && !torn && !wall && e.energy + 1.0E-3F >= rewindCost, rewinding, si.rewindReadyAt, si.rewindTotal)};
+                        base && !torn && !wall && e.energy + 1.0E-3F >= rewindCost, rewinding, si.rewindReadyAt, si.rewindTotal),
+                new Chip(dev.baranhan.flashmod.client.FlashKeys.FISTS, tr("hud.flashmod.fists"), TOGGLE,
+                        base && (si.fists || e.energy + 1.0E-3F >= cfg(dev.baranhan.flashmod.config.FlashServerConfig.KINETIC_MIN::get, 8F)),
+                        si.fists, 0L, 1)};
         int chH = 12, cw = (pw - 3) / 2, cy = ey + eh + 3;
         for (int i = 0; i < chips.length; i++) {
             int col = i % 2, row = i / 2;
-            chip(g, mc, chips[i], x + col * (cw + 3), cy + row * (chH + 2), cw, chH, now, e.glow, e.core, pulse, glows);
+            boolean wide = i == chips.length - 1 && col == 0; // tek kalan son cip tam genislik
+            chip(g, mc, chips[i], x + col * (cw + 3), cy + row * (chH + 2), wide ? pw : cw, chH, now, e.glow, e.core, pulse, glows);
         }
 
         // seviye segmentlerinin isigi

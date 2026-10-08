@@ -50,6 +50,9 @@ import java.util.UUID;
 public final class SkillClient {
     /** Bir hizcinin yetenek durumu (istemci). */
     public static final class Info {
+        public boolean fists;
+        /** Ac/kapa aninin zamani (yumruk isigi yanip/sonerken gecis). */
+        public long fistsAt = Long.MIN_VALUE / 2;
         public long decoyReadyAt, rewindReadyAt, blitzReadyAt, ultReadyAt;
         public int decoyTotal, rewindTotal, blitzTotal = 1, ultTotal = 1;
         public long punchAt = Long.MIN_VALUE / 2;
@@ -197,8 +200,17 @@ public final class SkillClient {
      * Yumruktaki enerji (0..100): Speed Force enerjisinden, sunucudaki yumruk gucuyle ayni hesap
      * (SkillLogic.punchPower). Kapaliysa ya da enerji yetmiyorsa 0.
      */
-    public static float fistCharge(ClientSpeedsters.Entry e) {
-        if (e == null || !e.active) return 0F;
+    public static float fistCharge(UUID id, float pt) {
+        ClientSpeedsters.Entry e = ClientSpeedsters.get(id);
+        Info i = INFO.get(id);
+        if (e == null || !e.active || i == null) return 0F;
+        float ramp = Mth.clamp((now() - i.fistsAt + pt) / 6F, 0F, 1F); // 6 tick'te yanar / soner
+        float on = i.fists ? ramp : 1F - ramp;
+        if (on <= 0F) return 0F;
+        return on * fistPower(e);
+    }
+
+    private static float fistPower(ClientSpeedsters.Entry e) {
         try {
             if (!dev.baranhan.flashmod.config.FlashServerConfig.KINETIC_ENABLED.get()) return 0F;
             return 100F * dev.baranhan.flashmod.speed.SkillLogic.punchPower(e.energy,
@@ -212,6 +224,10 @@ public final class SkillClient {
     public static void handleSync(SkillSyncPacket m) {
         Info i = info(m.player);
         long now = now();
+        if (i.fists != m.fists) {
+            i.fists = m.fists;
+            i.fistsAt = now;
+        }
         i.decoyReadyAt = now + m.decoyLeft;
         i.decoyTotal = Math.max(1, m.decoyTotal);
         i.rewindReadyAt = now + m.rewindLeft;
@@ -339,6 +355,11 @@ public final class SkillClient {
                 double[] d = inputDir(p);
                 FlashNetwork.sendToServer(new SkillCastPacket(SkillLogic.DECOY, (float) d[0], (float) d[1]));
             }
+        }
+        while (FlashKeys.FISTS.consumeClick()) {
+            ClientSpeedsters.Entry e = ClientSpeedsters.get(p.getUUID());
+            if (e != null && e.active && !e.blitz && !BlitzClient.localActive() && local == null)
+                FlashNetwork.sendToServer(new SkillCastPacket(SkillLogic.FISTS, 0F, 0F));
         }
         while (FlashKeys.REWIND.consumeClick()) {
             if (canCast(p) && !WallRun.isActive()) FlashNetwork.sendToServer(new SkillCastPacket(SkillLogic.REWIND, 0F, 0F));

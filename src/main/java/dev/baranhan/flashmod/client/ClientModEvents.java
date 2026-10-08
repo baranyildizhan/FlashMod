@@ -40,6 +40,7 @@ public final class ClientModEvents {
         event.register(FlashKeys.SLOWMO);
         event.register(FlashKeys.DECOY);
         event.register(FlashKeys.REWIND);
+        event.register(FlashKeys.FISTS);
     }
 
     @SubscribeEvent
