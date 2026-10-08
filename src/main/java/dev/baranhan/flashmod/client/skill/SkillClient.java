@@ -43,21 +43,20 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Istemci tarafi yetenekler: senkron (kinetik yuk, bekleme sureleri), gorsel olay listeleri (SkillRender/SkillGhosts
- * cizer), tuslar, yerel oyuncunun atilmasi ve geri sarma oynatimi (hareket istemci-otoriter), kinetik yumruk pozu.
+ * Istemci tarafi yetenekler: senkron (bekleme sureleri), gorsel olay listeleri (SkillRender/SkillGhosts
+ * cizer), tuslar, yerel oyuncunun atilmasi ve geri sarma oynatimi (hareket istemci-otoriter), yuklu yumruk pozu.
  */
 @Mod.EventBusSubscriber(modid = FlashMod.MODID, value = Dist.CLIENT)
 public final class SkillClient {
     /** Bir hizcinin yetenek durumu (istemci). */
     public static final class Info {
-        public float kinetic;
         public long decoyReadyAt, rewindReadyAt, blitzReadyAt, ultReadyAt;
         public int decoyTotal, rewindTotal, blitzTotal = 1, ultTotal = 1;
         public long punchAt = Long.MIN_VALUE / 2;
         public float punchPower;
     }
 
-    /** Kinetik yumruk isabeti. */
+    /** Yuklu yumruk isabeti. */
     public static final class Hit {
         public final double x, y, z;
         public final float dx, dz, power;
@@ -170,7 +169,7 @@ public final class SkillClient {
     private static long dashAt = Long.MIN_VALUE / 2;
     /** Geri sarma bitisinin beyaz parlamasi icin (yerel). */
     private static long localRewindEndAt = Long.MIN_VALUE / 2;
-    /** Yerel kamera sarsintisi (kinetik yumruk, geri sarma bitisi). */
+    /** Yerel kamera sarsintisi (yuklu yumruk, geri sarma bitisi). */
     private static long shakeAt = Long.MIN_VALUE / 2;
     private static float shakePower;
     private static final float[] DASH_PROFILE = {0.34F, 0.30F, 0.22F, 0.14F};
@@ -194,10 +193,25 @@ public final class SkillClient {
 
     // ---------------------------------------------------------------- paketler
 
+    /**
+     * Yumruktaki enerji (0..100): Speed Force enerjisinden, sunucudaki yumruk gucuyle ayni hesap
+     * (SkillLogic.punchPower). Kapaliysa ya da enerji yetmiyorsa 0.
+     */
+    public static float fistCharge(ClientSpeedsters.Entry e) {
+        if (e == null || !e.active) return 0F;
+        try {
+            if (!dev.baranhan.flashmod.config.FlashServerConfig.KINETIC_ENABLED.get()) return 0F;
+            return 100F * dev.baranhan.flashmod.speed.SkillLogic.punchPower(e.energy,
+                    dev.baranhan.flashmod.config.FlashServerConfig.KINETIC_COST.get().floatValue(),
+                    dev.baranhan.flashmod.config.FlashServerConfig.KINETIC_MIN.get().floatValue());
+        } catch (IllegalStateException ex) { // sunucu ayari henuz yok
+            return 100F * dev.baranhan.flashmod.speed.SkillLogic.punchPower(e.energy, 20F, 8F);
+        }
+    }
+
     public static void handleSync(SkillSyncPacket m) {
         Info i = info(m.player);
         long now = now();
-        i.kinetic = m.kinetic;
         i.decoyReadyAt = now + m.decoyLeft;
         i.decoyTotal = Math.max(1, m.decoyTotal);
         i.rewindReadyAt = now + m.rewindLeft;
@@ -468,7 +482,7 @@ public final class SkillClient {
     // ---------------------------------------------------------------- poz (HumanoidModelMixin -> BlitzAnim)
 
     /**
-     * Kinetik yumruk: kol bir an geriye kurulur, sonra omuz one donerken tam ileri firlar, kisa sure uzanik kalir ve
+     * Yuklu yumruk: kol bir an geriye kurulur, sonra omuz one donerken tam ileri firlar, kisa sure uzanik kalir ve
      * toparlanir; govde vurusla birlikte burulur. Vanilla saldiri salinimini ezer.
      */
     public static void applyPose(Player p, HumanoidModel<?> model, float pt) {

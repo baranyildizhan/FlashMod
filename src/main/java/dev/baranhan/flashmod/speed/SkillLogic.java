@@ -35,8 +35,8 @@ import java.util.UUID;
 
 /**
  * Sunucu tarafi yeni yetenekler:
- *  - Kinetik yuk: kostukca yumrukta birikir (0..100), kosmayinca yavasca soner. Bir sonraki yumruk (oyuncu
- *    saldirisi) yuku birakir: ek hasar, yuke gore savurma, simsek patlamasi.
+ *  - Yuklu yumruk: Speed Force enerjisi yumrukta toplanir; tam dolu bir sol tik vurusu (dogrudan oyuncu
+ *    saldirisi, savurma/tornado/blitz hasari degil) enerji harcar: ek hasar, savurma, simsek patlamasi.
  *  - Zaman kalintisi: hizcinin olduğu yerde donmus parlak goruntusu kalir (AfterimageEntity, dusmanlari ceker),
  *    hizci girdi yonune atilir ve kisa bir an gorunmez olur.
  *  - Geri sarma: son birkac saniyenin konum/bakis/can kaydi tutulur; kullaninca hizci kendi yolunu tersine kosar
@@ -44,7 +44,6 @@ import java.util.UUID;
  */
 public final class SkillLogic {
     public static final int DECOY = 0, REWIND = 1;
-    public static final float MAX_KINETIC = 100F;
 
     private static final class Sample {
         final double x, y, z;
@@ -65,9 +64,10 @@ public final class SkillLogic {
     }
 
     private static final class State {
-        float kinetic;
-        int idle;
-        boolean full;
+        // son sol tik (AttackEntityEvent): yalnizca bu hedefe, bu tick'te gelen hasar yumruk sayilir
+        int attackTarget = -1;
+        long attackTick = -1;
+        float attackStrength;
         double lx, ly, lz;
         boolean hasLast;
         long decoyReady, rewindReady;
@@ -85,10 +85,8 @@ public final class SkillLogic {
         @Nullable LivingEntity kbTarget;
         Vec3 kb = Vec3.ZERO;
         // son gonderilen
-        float sKinetic = -1F;
         long sBlitz = -1, sUlt = -1;
         long sDecoy = -1, sRewind = -1;
-        int syncCooldown;
     }
 
     private static final Map<UUID, State> STATES = new HashMap<>();
@@ -99,27 +97,6 @@ public final class SkillLogic {
 
     private static State state(Player p) {
         return STATES.computeIfAbsent(p.getUUID(), k -> new State());
-    }
-
-    /** Kinetik yukten en fazla 'amount' kadar al (simsek mizragi sarji); alinan miktari doner. */
-    public static float takeKinetic(Player p, float amount) {
-        State s = state(p);
-        float take = Math.max(0F, Math.min(amount, s.kinetic));
-        s.kinetic -= take;
-        s.idle = 0;
-        if (take > 0F) s.full = false;
-        return take;
-    }
-
-    /** Kullanilmayan sarji kinetik yuke iade et. */
-    public static void giveKinetic(Player p, float amount) {
-        State s = state(p);
-        s.kinetic = Math.min(MAX_KINETIC, s.kinetic + Math.max(0F, amount));
-    }
-
-    public static float kinetic(Player p) {
-        State s = STATES.get(p.getUUID());
-        return s == null ? 0F : s.kinetic;
     }
 
     public static boolean isRewinding(Player p) {
@@ -163,25 +140,10 @@ public final class SkillLogic {
             s.history.clear();
         }
 
-        // --- kinetik yuk
-        if (!active || !FlashServerConfig.KINETIC_ENABLED.get() || busy || TornadoLogic.isActive(p)) {
-            if (!active) s.kinetic = 0F;
-        } else {
-            if (h > 0.15D) {
-                s.idle = 0;
-                s.kinetic = Math.min(MAX_KINETIC, s.kinetic + (float) (Math.min(h, 6.0D) * FlashServerConfig.KINETIC_GAIN.get()));
-            } else if (++s.idle > 40 && !AbilityLogic.isCharging(p)) {
-                s.kinetic = Math.max(0F, s.kinetic - 0.8F);
-            }
-        }
-        boolean full = s.kinetic >= MAX_KINETIC - 0.01F;
-        if (full && !s.full) sound(p, FlashSounds.KINETIC_READY.get(), 0.7F, 1.0F);
-        s.full = full;
-
         sync(p, s, false);
     }
 
-    /** Sunucu tick sonu: bu tick'te kinetik yumruk yiyen hedeflere savurma (vanilla geri itmesinin ustune). */
+    /** Sunucu tick sonu: bu tick'te yuklu yumruk yiyen hedeflere savurma (vanilla geri itmesinin ustune). */
     public static void endServerTick() {
         if (PENDING_KB.isEmpty()) return;
         for (UUID id : PENDING_KB) {
@@ -198,20 +160,35 @@ public final class SkillLogic {
         PENDING_KB.clear();
     }
 
-    // ---------------------------------------------------------------- kinetik yumruk
+    // ---------------------------------------------------------------- yuklu yumruk
 
-    /** LivingHurtEvent: oyuncunun dogrudan yumrugu yuku birakir. */
+    /** AttackEntityEvent (sol tik, vurustan once): hedef ve vurus gucu kaydedilir. */
+    public static void onAttack(ServerPlayer sp, net.minecraft.world.entity.Entity target) {
+        State s = state(sp);
+        s.attackTarget = target.getId();
+        s.attackTick = sp.level().getGameTime();
+        s.attackStrength = sp.getAttackStrengthScale(0.5F);
+    }
+
+    /** Yumruk gucu (0..1): enerji / tam yumruk bedeli. Min enerjinin altinda 0. Istemci de ayni hesabi yapar. */
+    public static float punchPower(float energy, float cost, float min) {
+        if (energy + 1.0E-3F < Math.max(min, 0.01F)) return 0F;
+        return cost <= 0F ? 1F : Math.min(1F, energy / cost);
+    }
+
+    /** LivingHurtEvent: sol tikla dogrudan vurulan hedefe yuklu yumruk (tam dolu saldiri cubugu gerekir). */
     public static void onHurt(LivingHurtEvent event) {
         DamageSource src = event.getSource();
         if (!(src.getEntity() instanceof ServerPlayer sp) || src.getDirectEntity() != sp || !src.is(DamageTypes.PLAYER_ATTACK)) return;
         if (!FlashServerConfig.KINETIC_ENABLED.get() || !SpeedsterData.isActive(sp)) return;
         State s = STATES.get(sp.getUUID());
-        if (s == null || s.rewinding || BlitzLogic.isActive(sp) || s.kinetic < FlashServerConfig.KINETIC_MIN.get().floatValue()) return;
         LivingEntity t = event.getEntity();
-        if (t == sp) return;
-        float k = s.kinetic / MAX_KINETIC;
-        s.kinetic = 0F;
-        s.full = false;
+        if (s == null || t == sp || s.attackTarget != t.getId() || s.attackTick != sp.level().getGameTime()) return;
+        s.attackTarget = -1; // savurma (sweep) hasari ikinci kez tetiklemesin
+        if (s.rewinding || BlitzLogic.isActive(sp) || TornadoLogic.isActive(sp) || s.attackStrength < 0.9F) return;
+        float cost = FlashServerConfig.KINETIC_COST.get().floatValue();
+        float k = punchPower(AbilityLogic.energy(sp), cost, FlashServerConfig.KINETIC_MIN.get().floatValue());
+        if (k <= 0F || !AbilityLogic.consumeEnergy(sp, Math.min(AbilityLogic.energy(sp), cost * k))) return;
         event.setAmount(event.getAmount() + FlashServerConfig.KINETIC_DAMAGE.get().floatValue() * k);
 
         Vec3 dir = new Vec3(t.getX() - sp.getX(), 0, t.getZ() - sp.getZ());
@@ -227,15 +204,18 @@ public final class SkillLogic {
         FlashNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> sp),
                 SkillFxPacket.simple(SkillFxPacket.KINETIC_HIT, sp.getUUID(), t.getId(), hit.x, hit.y, hit.z,
                         (float) dir.x, 0F, (float) dir.z, k, SpeedsterData.getCore(sp), SpeedsterData.getGlow(sp)));
-        Level lv = sp.level();
-        lv.playSound(null, hit.x, hit.y, hit.z, FlashSounds.KINETIC_PUNCH.get(), SoundSource.PLAYERS, 0.7F + 0.7F * k,
+        impactSound(sp.level(), hit, k);
+    }
+
+    /** Yuklu yumruk patlama sesi (simsek mizragi carpmasi da ayni sesi calar). */
+    public static void impactSound(Level lv, Vec3 at, float k) {
+        lv.playSound(null, at.x, at.y, at.z, FlashSounds.KINETIC_PUNCH.get(), SoundSource.PLAYERS, 0.7F + 0.7F * k,
                 1.15F - 0.25F * k);
-        if (k >= 0.95F) { // tam yuk: Blitz finalindeki vanilla carpma katmanlari
-            lv.playSound(null, hit.x, hit.y, hit.z, SoundEvents.FIREWORK_ROCKET_LARGE_BLAST, SoundSource.PLAYERS, 1.6F, 0.35F);
-            lv.playSound(null, hit.x, hit.y, hit.z, SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 0.9F, 1.2F);
-            lv.playSound(null, hit.x, hit.y, hit.z, SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 0.5F, 1.6F);
-        }
-        sync(sp, s, true);
+        // Blitz finalindeki vanilla carpma katmanlari, gucle olceklenir
+        float v = 0.35F + 0.65F * k;
+        lv.playSound(null, at.x, at.y, at.z, SoundEvents.FIREWORK_ROCKET_LARGE_BLAST, SoundSource.PLAYERS, 1.6F * v, 0.35F);
+        lv.playSound(null, at.x, at.y, at.z, SoundEvents.LIGHTNING_BOLT_IMPACT, SoundSource.PLAYERS, 0.9F * v, 1.2F);
+        lv.playSound(null, at.x, at.y, at.z, SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 0.5F * v, 1.6F);
     }
 
     // ---------------------------------------------------------------- kullanim
@@ -329,7 +309,6 @@ public final class SkillLogic {
         s.rewindTicks = ticks;
         s.rewindTo = path[0];
         s.history.clear();
-        s.kinetic = 0F;
         s.rewindTotal = FlashServerConfig.REWIND_COOLDOWN.get() * 20;
         s.rewindReady = now + ticks + s.rewindTotal;
         p.fallDistance = 0F;
@@ -374,22 +353,17 @@ public final class SkillLogic {
     // ---------------------------------------------------------------- senkron / temizlik
 
     private static void sync(ServerPlayer p, State s, boolean force) {
-        if (s.syncCooldown > 0) s.syncCooldown--;
         long blitz = BlitzLogic.cooldownUntil(p), ult = SpeedsterData.getUltCooldown(p);
-        boolean changed = s.sDecoy != s.decoyReady || s.sRewind != s.rewindReady || s.sBlitz != blitz || s.sUlt != ult
-                || (s.kinetic == 0F) != (s.sKinetic == 0F) || (s.kinetic >= MAX_KINETIC) != (s.sKinetic >= MAX_KINETIC);
-        boolean valueChanged = Math.abs(s.sKinetic - s.kinetic) >= 1F;
-        if (!force && !changed && !(valueChanged && s.syncCooldown == 0)) return;
-        s.sKinetic = s.kinetic;
+        boolean changed = s.sDecoy != s.decoyReady || s.sRewind != s.rewindReady || s.sBlitz != blitz || s.sUlt != ult;
+        if (!force && !changed) return;
         s.sDecoy = s.decoyReady;
         s.sRewind = s.rewindReady;
         s.sBlitz = blitz;
         s.sUlt = ult;
-        s.syncCooldown = 3;
         long now = p.level().getGameTime();
         int ultLeft = (int) Math.max(0, Math.min(Integer.MAX_VALUE, ult - now));
         FlashNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> p),
-                new SkillSyncPacket(p.getUUID(), s.kinetic, (int) Math.max(0, s.decoyReady - now), s.decoyTotal,
+                new SkillSyncPacket(p.getUUID(), (int) Math.max(0, s.decoyReady - now), s.decoyTotal,
                         (int) Math.max(0, s.rewindReady - now), s.rewindTotal,
                         (int) Math.max(0, blitz - now), BlitzLogic.cooldownTotal(),
                         ultLeft, Math.max(ultLeft, FlashServerConfig.ULT_COOLDOWN.get() * 20)));
@@ -403,7 +377,6 @@ public final class SkillLogic {
         s.rewinding = false;
         s.rewindTo = null;
         s.hasLast = false;
-        s.kinetic = 0F;
     }
 
     public static void forget(UUID id) {

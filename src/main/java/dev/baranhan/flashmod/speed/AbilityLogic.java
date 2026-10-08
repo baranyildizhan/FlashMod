@@ -18,7 +18,7 @@ import java.util.UUID;
 /**
  * Sunucu tarafi yetenekler:
  *  - Speed Force enerjisi (0..100): kosarak/tornadoyla dolar.
- *  - Simsek mizragi: tus basiliyken kinetik yuk (SkillLogic) elde biriktirilir (sarj), birakinca firlatilir.
+ *  - Simsek mizragi: tus basiliyken Speed Force enerjisi elde biriktirilir (sarj, birim basina THROW_COST), birakinca firlatilir.
  *  - Agir cekim (ac/kapa): acikken enerji harcar ve TimeControl ile butun oyunu (sunucu + tum istemciler)
  *    yavaslatir. Enerji bitince ya da guc kapaninca kendiliginden kapanir.
  *  - Duvarda kosma durumu istemciden gelir, izleyenlere yayilir (render icin).
@@ -27,6 +27,8 @@ public final class AbilityLogic {
     public static final int THROW = 0, SLOWMO = 1;
     public static final float MAX_ENERGY = 100F;
     public static final float MIN_THROW = 15F;
+    /** Mizrak sarjinin birim enerji bedeli (tam sarj = 70 enerji). */
+    public static final float THROW_COST = 0.7F;
 
     private static final class State {
         float energy, charge;
@@ -70,7 +72,7 @@ public final class AbilityLogic {
         return false;
     }
 
-    /** Simsek mizragi sarj ediliyor mu (kinetik yuk bu sirada sonmez). */
+    /** Simsek mizragi sarj ediliyor mu . */
     public static boolean isCharging(Player p) {
         State s = STATES.get(p.getUUID());
         return s != null && s.throwHeld;
@@ -130,7 +132,7 @@ public final class AbilityLogic {
         float c = s.charge;
         s.charge = 0F;
         if (c < MIN_THROW || !SpeedsterData.isActive(p)) {
-            SkillLogic.giveKinetic(p, c); // yetersiz sarj: kinetik yuke iade
+            s.energy = Math.min(MAX_ENERGY, s.energy + c * THROW_COST); // yetersiz sarj: iade
             return;
         }
         float k = c / 100F;
@@ -163,7 +165,7 @@ public final class AbilityLogic {
         double h = Math.min(Math.sqrt(dx * dx + dz * dz), 50.0D);
 
         if (!active) {
-            if (s.charge > 0F) { SkillLogic.giveKinetic(p, s.charge); s.charge = 0F; }
+            if (s.charge > 0F) { s.energy = Math.min(MAX_ENERGY, s.energy + s.charge * THROW_COST); s.charge = 0F; }
             s.throwHeld = false;
             s.slowActive = false;
             s.slowToggle = false;
@@ -174,9 +176,11 @@ public final class AbilityLogic {
             else if (h > 0.4D) s.energy += (float) Math.min(h, 6.0D) * 0.55F;
             s.energy = Math.min(MAX_ENERGY, s.energy);
 
-            // mizrak sarji: kostukca biriken kinetik yukten (Speed Force enerjisi degil)
+            // mizrak sarji: Speed Force enerjisinden; sarjin her birimi THROW_COST enerji
             if (s.throwHeld && s.charge < 100F) {
-                s.charge += SkillLogic.takeKinetic(p, Math.min(4F, 100F - s.charge));
+                float add = Math.min(3F, Math.min(s.energy / THROW_COST, 100F - s.charge));
+                s.charge += add;
+                s.energy = Math.max(0F, s.energy - add * THROW_COST);
             }
 
             // agir cekim: gercek zamanda sabit enerji tuketimi (tick'ler yavasladikca tick basina daha fazla)

@@ -65,9 +65,7 @@ public final class FlashSounds {
 
     // ---------------------------------------------------------------- yetenekler
     // Dosyalar: assets/flashmod/sounds/skill/<ad>.ogg (sounds.json; liste ve sureler README'de).
-    /** Kinetik yuk doldu (kisa citirti / "hazir"). */
-    public static final RegistryObject<SoundEvent> KINETIC_READY = reg("kinetic_ready");
-    /** Kinetik yumruk (yuk birakildi); tam yukte ustune Blitz finalindeki vanilla katmanlar. */
+    /** Yuklu yumruk / simsek mizragi carpmasi; ustune Blitz finalindeki vanilla katmanlar (SkillLogic.impactSound). */
     public static final RegistryObject<SoundEvent> KINETIC_PUNCH = reg("kinetic_punch");
     /** Zaman kalintisi birakildi + yana atilma. */
     public static final RegistryObject<SoundEvent> DECOY_CAST = reg("decoy_cast");

@@ -9,19 +9,17 @@ import java.util.UUID;
 import java.util.function.Supplier;
 
 /**
- * Sunucu -> kendisi + izleyenler: kinetik yuk (0..100) ve yeteneklerin bekleme sureleri (kalan / toplam tick):
+ * Sunucu -> kendisi + izleyenler: yeteneklerin bekleme sureleri (kalan / toplam tick):
  * zaman kalintisi, geri sarma, Blitz, ultimate.
  * Bekleme sureleri sadece HUD icin (yalnizca kendi istemcinde anlamli).
  */
 public final class SkillSyncPacket {
     public final UUID player;
-    public final float kinetic;
     public final int decoyLeft, decoyTotal, rewindLeft, rewindTotal, blitzLeft, blitzTotal, ultLeft, ultTotal;
 
-    public SkillSyncPacket(UUID player, float kinetic, int decoyLeft, int decoyTotal, int rewindLeft, int rewindTotal,
+    public SkillSyncPacket(UUID player, int decoyLeft, int decoyTotal, int rewindLeft, int rewindTotal,
                            int blitzLeft, int blitzTotal, int ultLeft, int ultTotal) {
         this.player = player;
-        this.kinetic = kinetic;
         this.decoyLeft = decoyLeft;
         this.decoyTotal = decoyTotal;
         this.rewindLeft = rewindLeft;
@@ -34,7 +32,6 @@ public final class SkillSyncPacket {
 
     public static void encode(SkillSyncPacket m, FriendlyByteBuf buf) {
         buf.writeUUID(m.player);
-        buf.writeFloat(m.kinetic);
         buf.writeVarInt(m.decoyLeft);
         buf.writeVarInt(m.decoyTotal);
         buf.writeVarInt(m.rewindLeft);
@@ -46,7 +43,7 @@ public final class SkillSyncPacket {
     }
 
     public static SkillSyncPacket decode(FriendlyByteBuf buf) {
-        return new SkillSyncPacket(buf.readUUID(), buf.readFloat(), buf.readVarInt(), buf.readVarInt(), buf.readVarInt(),
+        return new SkillSyncPacket(buf.readUUID(), buf.readVarInt(), buf.readVarInt(), buf.readVarInt(),
                 buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), buf.readVarInt(), buf.readVarInt());
     }
 

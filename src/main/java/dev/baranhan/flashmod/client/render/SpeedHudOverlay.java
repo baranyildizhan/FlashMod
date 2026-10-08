@@ -235,29 +235,20 @@ public final class SpeedHudOverlay {
             }
         }
 
-        // Speed Force enerjisi
-        int ey = y + ph + extra + 3, ew = pw, eh = 4;
+        // Speed Force enerjisi (+ mizrak sarji: enerjiden ele alinan kisim, dolu kismin ardindan parlak)
+        int ey = y + ph + extra + 3, ew = pw, eh = 5;
         g.fill(x, ey, x + ew, ey + eh, 0x90000000);
         int fillW = Math.round((ew - 2) * Mth.clamp(e.energy / 100F, 0F, 1F));
         g.fill(x + 1, ey + 1, x + 1 + fillW, ey + eh - 1, 0xFF000000 | GlowDraw.mixRgb(e.glow, 0, 0.25F));
         glows.add(new float[]{x + 1, ey + 1, x + 1 + fillW, ey + eh - 1, 0.35F * pulse});
-
-        // Kinetik yuk (+ mizrak sarji: kinetikten elde biriken kisim, ardindan parlak)
+        if (e.charging && e.charge > 0F) {
+            float held = e.charge * dev.baranhan.flashmod.speed.AbilityLogic.THROW_COST / 100F;
+            int cw0 = Math.min(ew - 2 - fillW, Math.round((ew - 2) * Mth.clamp(held, 0F, 1F)));
+            g.fill(x + 1 + fillW, ey, x + 1 + fillW + cw0, ey + eh, 0xFF000000 | GlowDraw.mixRgb(e.core, 0xFFFFFF, 0.6F));
+            glows.add(new float[]{x + 1 + fillW, ey, x + 1 + fillW + cw0, ey + eh, 0.8F * pulse});
+        }
         dev.baranhan.flashmod.client.skill.SkillClient.Info si =
                 dev.baranhan.flashmod.client.skill.SkillClient.info(mc.player.getUUID());
-        float kin = Mth.clamp(si.kinetic / 100F, 0F, 1F);
-        boolean kinFull = kin >= 0.999F;
-        int ky = ey + eh + 2, kh = 3;
-        g.fill(x, ky, x + ew, ky + kh, 0x90000000);
-        int kinW = Math.round((ew - 2) * kin);
-        int kinCol = kinFull ? GlowDraw.mixRgb(e.core, 0xFFFFFF, 0.35F + 0.35F * pulse) : GlowDraw.mixRgb(e.core, e.glow, 0.35F);
-        if (kinW > 0) g.fill(x + 1, ky + 1, x + 1 + kinW, ky + kh - 1, 0xFF000000 | kinCol);
-        if (kinW > 0) glows.add(new float[]{x + 1, ky + 1, x + 1 + kinW, ky + kh - 1, (kinFull ? 0.6F : 0.25F) * pulse});
-        if (e.charging && e.charge > 0F) {
-            int cw0 = Math.min(ew - 2 - kinW, Math.round((ew - 2) * Mth.clamp(e.charge / 100F, 0F, 1F)));
-            g.fill(x + 1 + kinW, ky, x + 1 + kinW + cw0, ky + kh, 0xFF000000 | GlowDraw.mixRgb(e.core, 0xFFFFFF, 0.6F));
-            glows.add(new float[]{x + 1 + kinW, ky, x + 1 + kinW + cw0, ky + kh, 0.8F * pulse});
-        }
 
         // --- yetenekler: 2 sutun
         boolean locked = e.blitz || dev.baranhan.flashmod.client.ultimate.UltDirector.inputLocked();
@@ -276,7 +267,8 @@ public final class SpeedHudOverlay {
                 new Chip(dev.baranhan.flashmod.client.FlashKeys.TORNADO, tr("hud.flashmod.tornado"), HOLD,
                         base && !wall, torn, 0L, 1),
                 new Chip(dev.baranhan.flashmod.client.FlashKeys.THROW, tr("hud.flashmod.spear"), HOLD,
-                        base && (e.charging || si.kinetic >= dev.baranhan.flashmod.speed.AbilityLogic.MIN_THROW), e.charging, 0L, 1),
+                        base && (e.charging || e.energy + 1.0E-3F >= dev.baranhan.flashmod.speed.AbilityLogic.MIN_THROW
+                                * dev.baranhan.flashmod.speed.AbilityLogic.THROW_COST), e.charging, 0L, 1),
                 new Chip(dev.baranhan.flashmod.client.FlashKeys.PHASE, tr("hud.flashmod.phase"), HOLD,
                         base && phaseOk && !torn, phasing, 0L, 1),
                 new Chip(dev.baranhan.flashmod.client.FlashKeys.SLOWMO, tr("hud.flashmod.slowmo"), TOGGLE,
@@ -285,7 +277,7 @@ public final class SpeedHudOverlay {
                         base && !torn && e.energy + 1.0E-3F >= decoyCost, false, si.decoyReadyAt, si.decoyTotal),
                 new Chip(dev.baranhan.flashmod.client.FlashKeys.REWIND, tr("hud.flashmod.rewind_short"), PRESS,
                         base && !torn && !wall && e.energy + 1.0E-3F >= rewindCost, rewinding, si.rewindReadyAt, si.rewindTotal)};
-        int chH = 12, cw = (pw - 3) / 2, cy = ky + kh + 3;
+        int chH = 12, cw = (pw - 3) / 2, cy = ey + eh + 3;
         for (int i = 0; i < chips.length; i++) {
             int col = i % 2, row = i / 2;
             chip(g, mc, chips[i], x + col * (cw + 3), cy + row * (chH + 2), cw, chH, now, e.glow, e.core, pulse, glows);

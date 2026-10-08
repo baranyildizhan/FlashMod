@@ -30,9 +30,9 @@ import org.joml.Vector3f;
 
 /**
  * Yeteneklerin dunya ici efektleri (herkes gorur), bizim simsek altyapimizla (Lightning + GlowDraw):
- *  - Kinetik yuk: yumruk kolunda yuke gore artan, kol boyunca gezinen simsekler ve yumrukta biriken isik;
+ *  - Yumruktaki enerji (Speed Force enerjisine bagli): yumruk kolunda enerjiye gore artan, kol boyunca gezinen simsekler ve yumrukta biriken isik;
  *    tam yukte yumruktan yere sizan arklar. Birinci sahista ekrandaki elde.
- *  - Kinetik isabet: darbe noktasinda simsek patlamasi + darbe yonunde ilerleyen sok halkalari.
+ *  - Yuklu yumruk isabeti: darbe noktasinda simsek patlamasi + darbe yonunde ilerleyen sok halkalari.
  *  - Zaman kalintisi: kalintidan hizciya uzanan kopma simsekleri; parcalanma (statik bosalma) patlamasi ve halkasi.
  *  - Geri sarma: kalan yol boyunca titreyen simsek seridi, varis noktasinda ters donen saat kadrani ve isik sutunu,
  *    hizcinin belinde ters donen saat halkasi; bitiste zamanin yerine oturdugu patlama.
@@ -54,8 +54,7 @@ public final class SkillRender {
         boolean any = !SkillClient.HITS.isEmpty() || !SkillClient.BURSTS.isEmpty() || !SkillClient.REWINDS.isEmpty();
         if (!any) {
             for (Player p : mc.level.players()) {
-                SkillClient.Info i = SkillClient.infoOrNull(p.getUUID());
-                if (i != null && i.kinetic > 3F) { any = true; break; }
+                if (SkillClient.fistCharge(ClientSpeedsters.get(p.getUUID())) > 3F) { any = true; break; }
             }
         }
         if (!any) return;
@@ -74,11 +73,11 @@ public final class SkillRender {
             MultiBufferSource.BufferSource buffers = mc.renderBuffers().bufferSource();
             VertexConsumer vc = buffers.getBuffer(FlashRenderTypes.ADDITIVE_GLOW);
             for (Player p : mc.level.players()) {
-                SkillClient.Info i = SkillClient.infoOrNull(p.getUUID());
                 ClientSpeedsters.Entry e = ClientSpeedsters.get(p.getUUID());
-                if (i == null || e == null || !e.active || i.kinetic <= 3F || p.isInvisibleTo(mc.player)) continue;
+                float fist = SkillClient.fistCharge(e);
+                if (fist <= 3F || p.isInvisibleTo(mc.player)) continue;
                 boolean selfFp = p == mc.player && !camera.isDetached();
-                kinetic(vc, m, cam, p, e, i, t, now, bloom, selfFp);
+                fist(vc, m, cam, p, e, fist, t, now, bloom, selfFp);
             }
             for (SkillClient.Hit h : SkillClient.HITS) hit(vc, m, cam, h, t, now);
             for (SkillClient.Burst b : SkillClient.BURSTS) burst(vc, m, cam, b, t, now, bloom, mc, pt);
@@ -94,11 +93,11 @@ public final class SkillRender {
         return (float) (w - c);
     }
 
-    // ---------------------------------------------------------------- kinetik yuk
+    // ---------------------------------------------------------------- yumruktaki enerji
 
-    private static void kinetic(VertexConsumer vc, Matrix4f m, Vec3 cam, Player p, ClientSpeedsters.Entry e,
-                                SkillClient.Info i, float t, long now, float bloom, boolean selfFp) {
-        float k = Mth.clamp(i.kinetic / 100F, 0F, 1F);
+    private static void fist(VertexConsumer vc, Matrix4f m, Vec3 cam, Player p, ClientSpeedsters.Entry e,
+                                float fist, float t, long now, float bloom, boolean selfFp) {
+        float k = Mth.clamp(fist / 100F, 0F, 1F);
         boolean full = k >= 0.999F;
         boolean left = p.getMainArm() == HumanoidArm.LEFT;
         int core = e.core, glow = e.glow;
@@ -192,7 +191,7 @@ public final class SkillRender {
         else out[2] = rng.next() < 0.5F ? box[2] - 0.3F : box[5] + 0.3F;
     }
 
-    // ---------------------------------------------------------------- kinetik isabet
+    // ---------------------------------------------------------------- yuklu yumruk isabeti
 
     private static void hit(VertexConsumer vc, Matrix4f m, Vec3 cam, SkillClient.Hit h, float t, long now) {
         float age = (t - h.at) / 15F;

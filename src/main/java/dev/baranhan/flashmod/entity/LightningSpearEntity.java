@@ -99,6 +99,7 @@ public class LightningSpearEntity extends ThrowableProjectile {
             le.hurtMarked = true;
         }
         level().playSound(null, at.x, at.y, at.z, FlashSounds.SPEAR_IMPACT.get(), SoundSource.PLAYERS, 1.2F + k, 1.0F);
+        dev.baranhan.flashmod.speed.SkillLogic.impactSound(level(), at, k); // yuklu yumrukla ayni patlama
         setPos(at);
         level().broadcastEntityEvent(this, EVENT_IMPACT);
         discard();

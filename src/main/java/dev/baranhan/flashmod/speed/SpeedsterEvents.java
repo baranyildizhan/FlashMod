@@ -51,7 +51,13 @@ public final class SpeedsterEvents {
         }
     }
 
-    /** Kinetik yumruk: biriken yuk oyuncunun bir sonraki dogrudan darbesinde birakilir. */
+    /** Yuklu yumruk: sol tik hedefi kaydedilir (yalnizca o vurus enerjiyi birakir). */
+    @SubscribeEvent
+    public static void onPlayerAttack(net.minecraftforge.event.entity.player.AttackEntityEvent event) {
+        if (event.getEntity() instanceof ServerPlayer sp) SkillLogic.onAttack(sp, event.getTarget());
+    }
+
+    /** Yuklu yumruk: tam dolu sol tik vurusu Speed Force enerjisi harcayip patlar. */
     @SubscribeEvent
     public static void onHurt(net.minecraftforge.event.entity.living.LivingHurtEvent event) {
         if (!event.getEntity().level().isClientSide) SkillLogic.onHurt(event);

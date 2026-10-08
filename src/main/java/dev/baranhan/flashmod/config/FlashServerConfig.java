@@ -39,7 +39,7 @@ public final class FlashServerConfig {
     public static final ForgeConfigSpec.BooleanValue ULT_ALLOW_AIRBORNE;
     public static final ForgeConfigSpec.DoubleValue ULT_ENERGY;
     public static final ForgeConfigSpec.BooleanValue KINETIC_ENABLED;
-    public static final ForgeConfigSpec.DoubleValue KINETIC_GAIN;
+    public static final ForgeConfigSpec.DoubleValue KINETIC_COST;
     public static final ForgeConfigSpec.DoubleValue KINETIC_MIN;
     public static final ForgeConfigSpec.DoubleValue KINETIC_DAMAGE;
     public static final ForgeConfigSpec.DoubleValue KINETIC_KNOCKBACK;
@@ -119,12 +119,13 @@ public final class FlashServerConfig {
         ULT_ENERGY = b.comment("Speed Force energy cost (energy bar max 100).").defineInRange("energyCost", 60.0D, 0.0D, 100.0D);
         b.pop();
 
-        b.push("kinetic");
-        KINETIC_ENABLED = b.comment("Kinetic charge: running stores energy in your fist, the next punch releases it.")
+        b.push("chargedPunch");
+        KINETIC_ENABLED = b.comment("Charged punch: a fully charged left-click hit spends Speed Force energy for a lightning punch.")
                 .define("enabled", true);
-        KINETIC_GAIN = b.comment("Charge gained per block run (charge max 100).").defineInRange("gainPerBlock", 1.6D, 0.0D, 50.0D);
-        KINETIC_MIN = b.comment("Minimum charge a punch needs to release it.").defineInRange("minimumCharge", 25.0D, 0.0D, 100.0D);
-        KINETIC_DAMAGE = b.comment("Extra punch damage at full charge (scales linearly with charge).")
+        KINETIC_COST = b.comment("Speed Force energy a full-power punch spends (less energy -> weaker punch).")
+                .defineInRange("energyCost", 20.0D, 0.0D, 100.0D);
+        KINETIC_MIN = b.comment("Minimum Speed Force energy for a charged punch.").defineInRange("minimumEnergy", 8.0D, 0.0D, 100.0D);
+        KINETIC_DAMAGE = b.comment("Extra punch damage at full power (scales linearly with power).")
                 .defineInRange("maxBonusDamage", 10.0D, 0.0D, 1000.0D);
         KINETIC_KNOCKBACK = b.comment("Knockback speed at full charge (blocks/tick).").defineInRange("maxKnockback", 2.4D, 0.0D, 10.0D);
         b.pop();

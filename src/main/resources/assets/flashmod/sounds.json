@@ -225,14 +225,6 @@
       }
     ]
   },
-  "kinetic_ready": {
-    "subtitle": "subtitles.flashmod.kinetic_ready",
-    "sounds": [
-      {
-        "name": "flashmod:skill/kinetic_ready"
-      }
-    ]
-  },
   "kinetic_punch": {
     "subtitle": "subtitles.flashmod.kinetic_punch",
     "sounds": [
