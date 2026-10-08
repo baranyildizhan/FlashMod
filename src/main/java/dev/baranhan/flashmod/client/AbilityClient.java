@@ -159,6 +159,7 @@ public final class AbilityClient {
                 e.boomDirZ = hl > 1.0E-3 ? (float) (v.z / hl) : 0F;
             }
         }
+        dev.baranhan.flashmod.client.skill.SkillClient.spearBurst(at, k, core, glow);
         RandomSource r = level.random;
         int n = (int) ((40 + 80 * k) * Math.max(FlashParticles.factor(), 0.35F));
         for (int i = 0; i < n; i++) {
@@ -167,11 +168,10 @@ public final class AbilityClient {
             FlashParticles.spark(level, at.x, at.y, at.z, Math.cos(a) * Math.cos(b) * sp, Math.sin(b) * sp + 0.1D,
                     Math.sin(a) * Math.cos(b) * sp, core, glow, 8 + r.nextInt(12), 1.0F + 0.6F * k);
         }
-        for (int i = 0; i < 6 + 10 * k; i++) {
-            level.addParticle(ParticleTypes.LARGE_SMOKE, at.x + r.nextGaussian() * 0.6D, at.y + r.nextDouble(),
-                    at.z + r.nextGaussian() * 0.6D, 0, 0.04D, 0);
+        for (int i = 0; i < 3 + 5 * k; i++) { // hafif duman; parlama SkillRender'daki patlamada
+            level.addParticle(ParticleTypes.SMOKE, at.x + r.nextGaussian() * 0.5D, at.y + r.nextDouble() * 0.6D,
+                    at.z + r.nextGaussian() * 0.5D, 0, 0.03D, 0);
         }
-        level.addParticle(ParticleTypes.FLASH, at.x, at.y, at.z, 0, 0, 0);
     }
 
     /** Mizrak ucarken arkasindan sacilan kivilcimlar (renderer her yeni tick'te cagirir). */

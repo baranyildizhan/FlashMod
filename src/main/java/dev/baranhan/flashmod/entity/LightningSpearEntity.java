@@ -10,7 +10,6 @@ import net.minecraft.world.effect.MobEffectInstance;
 import net.minecraft.world.effect.MobEffects;
 import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.EntityType;
-import net.minecraft.world.entity.LightningBolt;
 import net.minecraft.world.entity.LivingEntity;
 import net.minecraft.world.entity.projectile.ThrowableProjectile;
 import net.minecraft.world.level.Level;
@@ -23,8 +22,8 @@ import net.minecraftforge.api.distmarker.Dist;
 import net.minecraftforge.fml.DistExecutor;
 
 /**
- * Simsek mizragi: yercekimsiz, hizli. Isabette alan hasari, atese verme, sersemletme ve geri itme;
- * yuksek sarjda gorsel bir yildirim da duser. Gucu (charge 0..100) istemcilere senkron, gorsel buna gore buyur.
+ * Simsek mizragi: yercekimsiz, hizli. Isabette alan hasari, atese verme, sersemletme ve geri itme; patlama gorseli
+ * istemcide bizim simseklerimizle (AbilityClient.spearImpact). Gucu (charge 0..100) istemcilere senkron, gorsel buna gore buyur.
  */
 public class LightningSpearEntity extends ThrowableProjectile {
     private static final EntityDataAccessor<Float> CHARGE = SynchedEntityData.defineId(LightningSpearEntity.class, EntityDataSerializers.FLOAT);
@@ -98,14 +97,6 @@ public class LightningSpearEntity extends ThrowableProjectile {
             if (push.lengthSqr() > 1.0E-4D) push = push.normalize();
             le.push(push.x * (0.5D + k), 0.25D + 0.35D * k, push.z * (0.5D + k));
             le.hurtMarked = true;
-        }
-        if (k > 0.55F && level().getRandom().nextFloat() < k) {
-            LightningBolt bolt = EntityType.LIGHTNING_BOLT.create(level());
-            if (bolt != null) {
-                bolt.moveTo(at.x, at.y, at.z);
-                bolt.setVisualOnly(true);
-                level().addFreshEntity(bolt);
-            }
         }
         level().playSound(null, at.x, at.y, at.z, FlashSounds.SPEAR_IMPACT.get(), SoundSource.PLAYERS, 1.2F + k, 1.0F);
         setPos(at);

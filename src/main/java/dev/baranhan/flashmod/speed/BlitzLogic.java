@@ -34,6 +34,16 @@ public final class BlitzLogic {
     private static final Map<UUID, Session> SESSIONS = new HashMap<>();
     private static final Map<UUID, Long> COOLDOWN = new HashMap<>();
 
+    /** Blitz'in tekrar kullanilabilecegi oyun zamani (HUD senkronu). */
+    public static long cooldownUntil(Player p) {
+        Long cd = COOLDOWN.get(p.getUUID());
+        return cd == null ? 0L : cd;
+    }
+
+    public static int cooldownTotal() {
+        return COOLDOWN_TICKS;
+    }
+
     private BlitzLogic() {}
 
     /** Herhangi bir Blitz sinematigi oynuyor mu (zaman yavaslatma o sirada normale doner). */

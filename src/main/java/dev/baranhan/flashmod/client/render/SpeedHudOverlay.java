@@ -81,13 +81,126 @@ public final class SpeedHudOverlay {
         return String.format(Locale.ROOT, "%.2fM km/h", kmh / 1.0E6F);
     }
 
+    // ---------------------------------------------------------------- yetenek cipleri
+
+    /** Bir yetenek cipi: tus, ad, tur (bas / basili tut / ac-kapa), kullanilabilir mi, su an acik mi, bekleme. */
+    private record Chip(net.minecraft.client.KeyMapping key, String name, int kind, boolean usable, boolean on,
+                        long readyAt, int total) {}
+
+    private static final int PRESS = 0, HOLD = 1, TOGGLE = 2;
+    private static final int GREY = 0xFF7C7C7C, GREY_DARK = 0xFF4A4A4A;
+
+    private static float cfg(java.util.function.Supplier<Double> v, float def) {
+        try {
+            return v.get().floatValue();
+        } catch (IllegalStateException ex) {
+            return def;
+        }
+    }
+
+    private static boolean cfgB(java.util.function.Supplier<Boolean> v, boolean def) {
+        try {
+            return v.get();
+        } catch (IllegalStateException ex) {
+            return def;
+        }
+    }
+
+    private static String keyText(net.minecraft.client.KeyMapping k) {
+        String t = k.getTranslatedKeyMessage().getString();
+        return t.length() > 3 ? t.substring(0, 3) : t;
+    }
+
+    /**
+     * Cip: solda tus (renkli), yaninda ad; sagda tur isareti (basili tut: alt cizgili tus kapagi, ac/kapa: yanan /
+     * sonuk nokta). Bekleme suresindeyse ad yerine kalan saniye ve altta dolan cizgi. Kullanilamiyorsa gri.
+     * Glow (yumusak isik) ikinci gecişte: glows listesine {x0, y0, x1, y1, guc} eklenir.
+     */
+    /** Adin ve tus kapaginin sigdigi en dar cip genisligi (ac/kapa noktasi dahil). */
+    private static int chipWidth(Minecraft mc, Chip c) {
+        int kw = Math.max(9, mc.font.width(keyText(c.key())) + 4);
+        return 1 + kw + 4 + mc.font.width(c.name()) + (c.kind() == TOGGLE ? 11 : 4);
+    }
+
+    private static void chip(GuiGraphics g, Minecraft mc, Chip c, int x0, int y0, int cw, int chH, long now, int glow,
+                             int core, float pulse, java.util.List<float[]> glows) {
+        long left = Math.max(0L, c.readyAt() - now);
+        boolean cooling = left > 0L;
+        boolean lit = c.usable() && !cooling;
+        g.fill(x0, y0, x0 + cw, y0 + chH, 0x90000000);
+        if (c.on()) {
+            g.fill(x0, y0, x0 + cw, y0 + chH, (0x48 << 24) | (glow & 0xFFFFFF));
+            glows.add(new float[]{x0, y0, x0 + cw, y0 + chH, 0.35F * pulse});
+        }
+        int keyCol = lit || c.on() ? 0xFF000000 | glow : GREY_DARK | 0xFF000000;
+        String key = keyText(c.key());
+        int kw = Math.max(9, mc.font.width(key) + 4);
+        g.fill(x0 + 1, y0 + 1, x0 + 1 + kw, y0 + chH - 1, lit || c.on() ? 0x60000000 : 0x40000000);
+        g.drawString(mc.font, key, x0 + 1 + (kw - mc.font.width(key)) / 2, y0 + 2, keyCol, false);
+        if (c.kind() == HOLD) { // basili tut: tus kapaginin altinda kalin cizgi
+            g.fill(x0 + 2, y0 + chH - 2, x0 + kw, y0 + chH - 1, lit ? 0xFF000000 | GlowDraw.mixRgb(glow, 0xFFFFFF, 0.3F) : 0xFF555555);
+        }
+        int tx = x0 + kw + 4;
+        int nameCol = c.on() ? 0xFF000000 | GlowDraw.mixRgb(core, 0xFFFFFF, 0.4F) : lit ? 0xFFF0F0F0 : GREY;
+        if (cooling) {
+            String sec = left >= 200L ? String.format(Locale.ROOT, "%ds", (left + 19L) / 20L)
+                    : String.format(Locale.ROOT, "%.1fs", left / 20F);
+            g.drawString(mc.font, c.name(), tx, y0 + 2, GREY, false);
+            g.drawString(mc.font, sec, x0 + cw - 3 - mc.font.width(sec), y0 + 2, 0xFFB8B8B8, false);
+            float ready = 1F - Mth.clamp(left / (float) Math.max(1, c.total()), 0F, 1F);
+            g.fill(x0 + 1, y0 + chH - 1, x0 + 1 + Math.round((cw - 2) * ready), y0 + chH, 0xFF000000 | GlowDraw.mixRgb(glow, 0, 0.5F));
+        } else {
+            g.drawString(mc.font, c.name(), tx, y0 + 2, nameCol, false);
+            if (lit) {
+                g.fill(x0 + 1, y0 + chH - 1, x0 + cw - 1, y0 + chH, 0xFF000000 | GlowDraw.mixRgb(glow, 0, 0.3F));
+                glows.add(new float[]{x0 + 1, y0 + chH - 1, x0 + cw - 1, y0 + chH, 0.4F * pulse});
+            }
+        }
+        if (c.kind() == TOGGLE) { // ac/kapa: sagda nokta
+            int dx = x0 + cw - 6, dy = y0 + chH / 2 - 2;
+            if (!cooling) g.fill(dx, dy, dx + 3, dy + 3, c.on() ? 0xFF000000 | GlowDraw.mixRgb(core, 0xFFFFFF, 0.5F) : 0xFF5A5A5A);
+            if (c.on()) glows.add(new float[]{dx - 1, dy - 1, dx + 4, dy + 4, 0.8F * pulse});
+        }
+    }
+
+    private static void glowPass(GuiGraphics g, java.util.List<float[]> glows, int glow) {
+        if (glows.isEmpty()) return;
+        g.flush();
+        Matrix4f m = g.pose().last().pose();
+        BufferBuilder buf = GlowDraw.beginGui();
+        for (float[] r : glows) {
+            GlowDraw.softRect(buf, m, r[0], r[1], r[2], r[3], 2.5F, GlowDraw.cr(glow), GlowDraw.cg(glow), GlowDraw.cb(glow), r[4]);
+        }
+        GlowDraw.endGui();
+    }
+
     public static void renderHud(ForgeGui gui, GuiGraphics g, float pt, int w, int h) {
         Minecraft mc = Minecraft.getInstance();
         if (mc.player == null || mc.options.hideGui || !FlashClientConfig.SHOW_HUD.get()) return;
         ClientSpeedsters.Entry e = ClientSpeedsters.get(mc.player.getUUID());
-        if (e == null || !e.active) return;
+        boolean active = e != null && e.active;
+        int glowCol = e != null ? e.glow : SpeedsterData.DEFAULT_GLOW, coreCol = e != null ? e.core : SpeedsterData.DEFAULT_CORE;
+        float pulse = 0.75F + 0.25F * Mth.sin(Util.getMillis() / 180F);
+        long now = mc.level == null ? 0L : mc.level.getGameTime();
+        java.util.List<float[]> glows = new java.util.ArrayList<>();
 
-        int x = 6, y = 6, pw = 128, ph = 30;
+        // --- sag ust: kus bakisi kamera + Speed Force ac/kapa
+        {
+            Chip aerial = new Chip(dev.baranhan.flashmod.client.FlashKeys.AERIAL, tr("hud.flashmod.aerial"), TOGGLE,
+                    active, dev.baranhan.flashmod.client.CameraModes.aerial, 0L, 1);
+            Chip sf = new Chip(dev.baranhan.flashmod.client.FlashKeys.TOGGLE, tr("hud.flashmod.speedforce"), TOGGLE,
+                    true, active, 0L, 1);
+            int cw = Math.max(64, Math.max(chipWidth(mc, aerial), chipWidth(mc, sf))), chH = 12;
+            int gx = w - 6 - (cw * 2 + 3), gy = 6;
+            chip(g, mc, aerial, gx, gy, cw, chH, now, glowCol, coreCol, pulse, glows);
+            chip(g, mc, sf, gx + cw + 3, gy, cw, chH, now, glowCol, coreCol, pulse, glows);
+        }
+        if (!active) {
+            glowPass(g, glows, glowCol);
+            return;
+        }
+
+        int x = 6, y = 6, pw = 168, ph = 30;
         float odf = e.overdriveFactor();
         boolean overdrive = odf > 1.15F && mc.player.isSprinting();
         boolean phasing = PhaseHelper.clientLocalPhasing;
@@ -107,7 +220,6 @@ public final class SpeedHudOverlay {
             g.fill(x0, sy, x0 + segW, sy + segH, i < e.level ? 0xFF000000 | GlowDraw.mixRgb(e.glow, 0, 0.35F) : 0x40FFFFFF);
         }
 
-        float pulse = 0.75F + 0.25F * Mth.sin(Util.getMillis() / 180F);
         if (overdrive || phasing) {
             int ty = y + ph - 1;
             if (overdrive) {
@@ -123,20 +235,16 @@ public final class SpeedHudOverlay {
             }
         }
 
-        // Speed Force enerjisi + mizrak sarji
+        // Speed Force enerjisi
         int ey = y + ph + extra + 3, ew = pw, eh = 4;
         g.fill(x, ey, x + ew, ey + eh, 0x90000000);
         int fillW = Math.round((ew - 2) * Mth.clamp(e.energy / 100F, 0F, 1F));
         g.fill(x + 1, ey + 1, x + 1 + fillW, ey + eh - 1, 0xFF000000 | GlowDraw.mixRgb(e.glow, 0, 0.25F));
-        if (e.charging) {
-            int cw = Math.round((ew - 2) * Mth.clamp(e.charge / 100F, 0F, 1F));
-            g.fill(x + 1, ey + 1, x + 1 + cw, ey + eh - 1, 0xFF000000 | GlowDraw.mixRgb(e.core, 0xFFFFFF, 0.3F));
-        }
+        glows.add(new float[]{x + 1, ey + 1, x + 1 + fillW, ey + eh - 1, 0.35F * pulse});
 
-        // Kinetik yuk (yumrukta biriken) + yeteneklerin bekleme sureleri
+        // Kinetik yuk (+ mizrak sarji: kinetikten elde biriken kisim, ardindan parlak)
         dev.baranhan.flashmod.client.skill.SkillClient.Info si =
                 dev.baranhan.flashmod.client.skill.SkillClient.info(mc.player.getUUID());
-        long now = mc.level == null ? 0L : mc.level.getGameTime();
         float kin = Mth.clamp(si.kinetic / 100F, 0F, 1F);
         boolean kinFull = kin >= 0.999F;
         int ky = ey + eh + 2, kh = 3;
@@ -144,46 +252,50 @@ public final class SpeedHudOverlay {
         int kinW = Math.round((ew - 2) * kin);
         int kinCol = kinFull ? GlowDraw.mixRgb(e.core, 0xFFFFFF, 0.35F + 0.35F * pulse) : GlowDraw.mixRgb(e.core, e.glow, 0.35F);
         if (kinW > 0) g.fill(x + 1, ky + 1, x + 1 + kinW, ky + kh - 1, 0xFF000000 | kinCol);
-        int cy = ky + kh + 3, chH = 11, chW = (pw - 3) / 2;
-        float[] ready = new float[2];
-        net.minecraft.client.KeyMapping[] keys = {dev.baranhan.flashmod.client.FlashKeys.DECOY,
-                dev.baranhan.flashmod.client.FlashKeys.REWIND};
-        String[] labels = {"hud.flashmod.decoy", "hud.flashmod.rewind_short"};
-        long[] at = {si.decoyReadyAt, si.rewindReadyAt};
-        int[] total = {Math.max(1, si.decoyTotal), Math.max(1, si.rewindTotal)};
-        for (int i = 0; i < 2; i++) {
-            int cx0 = x + i * (chW + 3);
-            long left = Math.max(0L, at[i] - now);
-            ready[i] = left == 0L ? 1F : 1F - Mth.clamp(left / (float) total[i], 0F, 1F);
-            g.fill(cx0, cy, cx0 + chW, cy + chH, 0x90000000);
-            int pw2 = Math.round((chW - 2) * ready[i]);
-            int fillCol = left == 0L ? GlowDraw.mixRgb(e.glow, 0, 0.45F) : 0x40FFFFFF;
-            g.fill(cx0 + 1, cy + chH - 2, cx0 + 1 + pw2, cy + chH - 1, 0xFF000000 | (fillCol & 0xFFFFFF));
-            String key = keys[i].getTranslatedKeyMessage().getString();
-            if (key.length() > 3) key = key.substring(0, 3);
-            Component lab = left == 0L ? Component.translatable(labels[i])
-                    : Component.literal(String.format(Locale.ROOT, "%.1fs", left / 20F));
-            int tc = left == 0L ? 0xFF000000 | GlowDraw.mixRgb(e.core, 0xFFFFFF, 0.3F) : 0xFF9A9A9A;
-            g.drawString(mc.font, key, cx0 + 3, cy + 1, 0xFF000000 | e.glow, true);
-            g.drawString(mc.font, lab, cx0 + chW - 3 - mc.font.width(lab), cy + 1, tc, true);
+        if (kinW > 0) glows.add(new float[]{x + 1, ky + 1, x + 1 + kinW, ky + kh - 1, (kinFull ? 0.6F : 0.25F) * pulse});
+        if (e.charging && e.charge > 0F) {
+            int cw0 = Math.min(ew - 2 - kinW, Math.round((ew - 2) * Mth.clamp(e.charge / 100F, 0F, 1F)));
+            g.fill(x + 1 + kinW, ky, x + 1 + kinW + cw0, ky + kh, 0xFF000000 | GlowDraw.mixRgb(e.core, 0xFFFFFF, 0.6F));
+            glows.add(new float[]{x + 1 + kinW, ky, x + 1 + kinW + cw0, ky + kh, 0.8F * pulse});
         }
 
+        // --- yetenekler: 2 sutun
+        boolean locked = e.blitz || dev.baranhan.flashmod.client.ultimate.UltDirector.inputLocked();
+        boolean torn = dev.baranhan.flashmod.client.Tornado.isActive(), wall = dev.baranhan.flashmod.client.WallRun.isActive();
+        boolean base = !locked;
+        float ultCost = cfg(dev.baranhan.flashmod.config.FlashServerConfig.ULT_ENERGY::get, 60F);
+        float decoyCost = cfg(dev.baranhan.flashmod.config.FlashServerConfig.DECOY_ENERGY::get, 20F);
+        float rewindCost = cfg(dev.baranhan.flashmod.config.FlashServerConfig.REWIND_ENERGY::get, 35F);
+        boolean phaseOk = cfgB(dev.baranhan.flashmod.config.FlashServerConfig.PHASING::get, true);
+        boolean rewinding = dev.baranhan.flashmod.client.skill.SkillClient.rewinding(mc.player.getUUID());
+        Chip[] chips = {
+                new Chip(dev.baranhan.flashmod.client.FlashKeys.BLITZ, tr("hud.flashmod.blitz"), PRESS,
+                        base && !torn && !wall, e.blitz, si.blitzReadyAt, si.blitzTotal),
+                new Chip(dev.baranhan.flashmod.client.FlashKeys.ULTIMATE, tr("hud.flashmod.ultimate"), PRESS,
+                        base && !torn && !wall && e.energy + 1.0E-3F >= ultCost, false, si.ultReadyAt, si.ultTotal),
+                new Chip(dev.baranhan.flashmod.client.FlashKeys.TORNADO, tr("hud.flashmod.tornado"), HOLD,
+                        base && !wall, torn, 0L, 1),
+                new Chip(dev.baranhan.flashmod.client.FlashKeys.THROW, tr("hud.flashmod.spear"), HOLD,
+                        base && (e.charging || si.kinetic >= dev.baranhan.flashmod.speed.AbilityLogic.MIN_THROW), e.charging, 0L, 1),
+                new Chip(dev.baranhan.flashmod.client.FlashKeys.PHASE, tr("hud.flashmod.phase"), HOLD,
+                        base && phaseOk && !torn, phasing, 0L, 1),
+                new Chip(dev.baranhan.flashmod.client.FlashKeys.SLOWMO, tr("hud.flashmod.slowmo"), TOGGLE,
+                        base && (e.slowmo || e.energy > 2F), e.slowmo, 0L, 1),
+                new Chip(dev.baranhan.flashmod.client.FlashKeys.DECOY, tr("hud.flashmod.decoy"), PRESS,
+                        base && !torn && e.energy + 1.0E-3F >= decoyCost, false, si.decoyReadyAt, si.decoyTotal),
+                new Chip(dev.baranhan.flashmod.client.FlashKeys.REWIND, tr("hud.flashmod.rewind_short"), PRESS,
+                        base && !torn && !wall && e.energy + 1.0E-3F >= rewindCost, rewinding, si.rewindReadyAt, si.rewindTotal)};
+        int chH = 12, cw = (pw - 3) / 2, cy = ky + kh + 3;
+        for (int i = 0; i < chips.length; i++) {
+            int col = i % 2, row = i / 2;
+            chip(g, mc, chips[i], x + col * (cw + 3), cy + row * (chH + 2), cw, chH, now, e.glow, e.core, pulse, glows);
+        }
+
+        // seviye segmentlerinin isigi
         g.flush();
         Matrix4f m = g.pose().last().pose();
         BufferBuilder buf = GlowDraw.beginGui();
         int hot = GlowDraw.mixRgb(e.core, 0xFFFFFF, 0.3F);
-        GlowDraw.softRect(buf, m, x + 1, ey + 1, x + 1 + fillW, ey + eh - 1, 2F,
-                GlowDraw.cr(e.glow), GlowDraw.cg(e.glow), GlowDraw.cb(e.glow), 0.35F * pulse);
-        if (kinW > 0) {
-            GlowDraw.softRect(buf, m, x + 1, ky + 1, x + 1 + kinW, ky + kh - 1, kinFull ? 3F : 2F,
-                    GlowDraw.cr(e.core), GlowDraw.cg(e.core), GlowDraw.cb(e.core), (kinFull ? 0.6F : 0.25F) * pulse);
-        }
-        for (int i = 0; i < 2; i++) {
-            if (ready[i] < 1F) continue;
-            int cx0 = x + i * (chW + 3);
-            GlowDraw.softRect(buf, m, cx0 + 1, cy + chH - 2, cx0 + chW - 1, cy + chH - 1, 2F,
-                    GlowDraw.cr(e.glow), GlowDraw.cg(e.glow), GlowDraw.cb(e.glow), 0.5F * pulse);
-        }
         for (int i = 0; i < e.level; i++) {
             int x0 = sx + i * (segW + gap);
             GlowDraw.softRect(buf, m, x0, sy, x0 + segW, sy + segH, 3F,
@@ -192,5 +304,10 @@ public final class SpeedHudOverlay {
                     GlowDraw.cr(hot), GlowDraw.cg(hot), GlowDraw.cb(hot), 0.7F);
         }
         GlowDraw.endGui();
+        glowPass(g, glows, e.glow);
+    }
+
+    private static String tr(String key) {
+        return Component.translatable(key).getString();
     }
 }

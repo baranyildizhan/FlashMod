@@ -86,6 +86,7 @@ public final class SkillLogic {
         Vec3 kb = Vec3.ZERO;
         // son gonderilen
         float sKinetic = -1F;
+        long sBlitz = -1, sUlt = -1;
         long sDecoy = -1, sRewind = -1;
         int syncCooldown;
     }
@@ -98,6 +99,27 @@ public final class SkillLogic {
 
     private static State state(Player p) {
         return STATES.computeIfAbsent(p.getUUID(), k -> new State());
+    }
+
+    /** Kinetik yukten en fazla 'amount' kadar al (simsek mizragi sarji); alinan miktari doner. */
+    public static float takeKinetic(Player p, float amount) {
+        State s = state(p);
+        float take = Math.max(0F, Math.min(amount, s.kinetic));
+        s.kinetic -= take;
+        s.idle = 0;
+        if (take > 0F) s.full = false;
+        return take;
+    }
+
+    /** Kullanilmayan sarji kinetik yuke iade et. */
+    public static void giveKinetic(Player p, float amount) {
+        State s = state(p);
+        s.kinetic = Math.min(MAX_KINETIC, s.kinetic + Math.max(0F, amount));
+    }
+
+    public static float kinetic(Player p) {
+        State s = STATES.get(p.getUUID());
+        return s == null ? 0F : s.kinetic;
     }
 
     public static boolean isRewinding(Player p) {
@@ -148,7 +170,7 @@ public final class SkillLogic {
             if (h > 0.15D) {
                 s.idle = 0;
                 s.kinetic = Math.min(MAX_KINETIC, s.kinetic + (float) (Math.min(h, 6.0D) * FlashServerConfig.KINETIC_GAIN.get()));
-            } else if (++s.idle > 40) {
+            } else if (++s.idle > 40 && !AbilityLogic.isCharging(p)) {
                 s.kinetic = Math.max(0F, s.kinetic - 0.8F);
             }
         }
@@ -184,7 +206,7 @@ public final class SkillLogic {
         if (!(src.getEntity() instanceof ServerPlayer sp) || src.getDirectEntity() != sp || !src.is(DamageTypes.PLAYER_ATTACK)) return;
         if (!FlashServerConfig.KINETIC_ENABLED.get() || !SpeedsterData.isActive(sp)) return;
         State s = STATES.get(sp.getUUID());
-        if (s == null || s.rewinding || s.kinetic < FlashServerConfig.KINETIC_MIN.get().floatValue()) return;
+        if (s == null || s.rewinding || BlitzLogic.isActive(sp) || s.kinetic < FlashServerConfig.KINETIC_MIN.get().floatValue()) return;
         LivingEntity t = event.getEntity();
         if (t == sp) return;
         float k = s.kinetic / MAX_KINETIC;
@@ -353,18 +375,24 @@ public final class SkillLogic {
 
     private static void sync(ServerPlayer p, State s, boolean force) {
         if (s.syncCooldown > 0) s.syncCooldown--;
-        boolean changed = s.sDecoy != s.decoyReady || s.sRewind != s.rewindReady
+        long blitz = BlitzLogic.cooldownUntil(p), ult = SpeedsterData.getUltCooldown(p);
+        boolean changed = s.sDecoy != s.decoyReady || s.sRewind != s.rewindReady || s.sBlitz != blitz || s.sUlt != ult
                 || (s.kinetic == 0F) != (s.sKinetic == 0F) || (s.kinetic >= MAX_KINETIC) != (s.sKinetic >= MAX_KINETIC);
         boolean valueChanged = Math.abs(s.sKinetic - s.kinetic) >= 1F;
         if (!force && !changed && !(valueChanged && s.syncCooldown == 0)) return;
         s.sKinetic = s.kinetic;
         s.sDecoy = s.decoyReady;
         s.sRewind = s.rewindReady;
+        s.sBlitz = blitz;
+        s.sUlt = ult;
         s.syncCooldown = 3;
         long now = p.level().getGameTime();
+        int ultLeft = (int) Math.max(0, Math.min(Integer.MAX_VALUE, ult - now));
         FlashNetwork.CHANNEL.send(PacketDistributor.TRACKING_ENTITY_AND_SELF.with(() -> p),
                 new SkillSyncPacket(p.getUUID(), s.kinetic, (int) Math.max(0, s.decoyReady - now), s.decoyTotal,
-                        (int) Math.max(0, s.rewindReady - now), s.rewindTotal));
+                        (int) Math.max(0, s.rewindReady - now), s.rewindTotal,
+                        (int) Math.max(0, blitz - now), BlitzLogic.cooldownTotal(),
+                        ultLeft, Math.max(ultLeft, FlashServerConfig.ULT_COOLDOWN.get() * 20)));
     }
 
     /** Boyut degisimi / olum: gecmis gecersiz, yarim kalan geri sarma iptal. */

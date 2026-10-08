@@ -288,6 +288,18 @@ public final class SkillRender {
                     GlowDraw.layered(vc, m, LINE, 0.4F, b.core, b.glow, a, bloom, false);
                 }
             }
+            case SkillClient.SPEAR -> {
+                float u = age / 16F;
+                if (u >= 1F) return;
+                float k = b.dx;
+                // carptigi yerin altindaki zemin (yoksa isabet noktasi)
+                double gy = b.y;
+                net.minecraft.core.BlockPos bp = net.minecraft.core.BlockPos.containing(b.x, b.y - 0.01, b.z);
+                for (int i = 0; i < 4 && mc.level.getBlockState(bp).isAir(); i++) bp = bp.below();
+                if (!mc.level.getBlockState(bp).isAir()) gy = bp.getY() + 1.0;
+                UltWorldFx.burst(vc, m, cam, new Vec3(b.x, b.y + 0.3, b.z), b.y - gy < 3.0 ? gy : Double.NaN,
+                        1.8F + 3.2F * k, u, 8 + (int) (12 * k), b.seed, frame, b.core, b.glow, 1F);
+            }
             case SkillFxPacket.REWIND_END -> {
                 float u = age / 16F;
                 if (u >= 1F) return;

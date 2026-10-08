@@ -51,8 +51,8 @@ public final class SkillClient {
     /** Bir hizcinin yetenek durumu (istemci). */
     public static final class Info {
         public float kinetic;
-        public long decoyReadyAt, rewindReadyAt;
-        public int decoyTotal, rewindTotal;
+        public long decoyReadyAt, rewindReadyAt, blitzReadyAt, ultReadyAt;
+        public int decoyTotal, rewindTotal, blitzTotal = 1, ultTotal = 1;
         public long punchAt = Long.MIN_VALUE / 2;
         public float punchPower;
     }
@@ -81,6 +81,16 @@ public final class SkillClient {
         public final float dx, dz;
         public final long at, seed;
         public final int core, glow;
+
+        Burst(byte type, UUID player, Vec3 at, float power, long time, int core, int glow) {
+            this.type = type;
+            this.player = player;
+            this.x = at.x; this.y = at.y; this.z = at.z;
+            this.dx = power; this.dz = 0F;
+            this.at = time;
+            this.seed = Double.doubleToLongBits(at.x * 13 + at.z) ^ (time * 37L);
+            this.core = core; this.glow = glow;
+        }
 
         Burst(SkillFxPacket m, long at) {
             this.type = m.type;
@@ -192,6 +202,10 @@ public final class SkillClient {
         i.decoyTotal = Math.max(1, m.decoyTotal);
         i.rewindReadyAt = now + m.rewindLeft;
         i.rewindTotal = Math.max(1, m.rewindTotal);
+        i.blitzReadyAt = now + m.blitzLeft;
+        i.blitzTotal = Math.max(1, m.blitzTotal);
+        i.ultReadyAt = now + m.ultLeft;
+        i.ultTotal = Math.max(1, m.ultTotal);
     }
 
     public static void handleFx(SkillFxPacket m) {
@@ -242,6 +256,15 @@ public final class SkillClient {
             }
             default -> {}
         }
+    }
+
+    /** Simsek mizragi isabeti: bizim simsek patlamamiz (eskiden vanilla yildirim dusuyordu). dx = sarj 0..1. */
+    public static final byte SPEAR = 20;
+
+    public static void spearBurst(Vec3 at, float charge, int core, int glow) {
+        Minecraft mc = Minecraft.getInstance();
+        if (mc.level == null) return;
+        BURSTS.add(new Burst(SPEAR, new UUID(0, 0), at, charge, mc.level.getGameTime(), core, glow));
     }
 
     // ---------------------------------------------------------------- parcaciklar
