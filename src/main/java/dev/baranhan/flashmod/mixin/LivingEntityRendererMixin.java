@@ -23,6 +23,7 @@ public abstract class LivingEntityRendererMixin {
             require = 0)
     private void flashmod$captureBody(LivingEntity entity, float yaw, float partialTick, PoseStack poseStack,
                                       MultiBufferSource buffers, int light, CallbackInfo ci) {
+        dev.baranhan.flashmod.client.render.FlameAnchor.capture(entity, poseStack);
         // GUI'de (envanter, kostum dolabi) cizilen model ortografik projeksiyonla gelir: yakalama, yoksa iz/simsekler
         // o kare GUI koordinatlarina yapisir.
         if (com.mojang.blaze3d.systems.RenderSystem.getProjectionMatrix().m33() == 1.0F) return;
