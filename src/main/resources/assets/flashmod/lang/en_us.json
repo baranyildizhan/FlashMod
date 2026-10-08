@@ -87,5 +87,20 @@
   "subtitles.flashmod.ult_wind": "Wind rushes",
   "subtitles.flashmod.ult_focus": "Speedster lands, focus",
   "subtitles.flashmod.ult_slowmo": "Time slows down",
-  "key.flashmod.ultimate_skip": "Skip ultimate cinematic"
+  "key.flashmod.ultimate_skip": "Skip ultimate cinematic",
+  "key.flashmod.decoy": "Afterimage decoy",
+  "key.flashmod.rewind": "Rewind",
+  "hud.flashmod.decoy": "Decoy",
+  "hud.flashmod.rewind_short": "Rewind",
+  "hud.flashmod.rewind": "◀◀ REWIND",
+  "msg.flashmod.skill_cooldown": "Not ready yet (%s s)",
+  "msg.flashmod.skill_energy": "Not enough Speed Force",
+  "msg.flashmod.rewind_short": "Nothing to rewind yet",
+  "entity.flashmod.afterimage": "Afterimage",
+  "subtitles.flashmod.kinetic_ready": "Kinetic charge full",
+  "subtitles.flashmod.kinetic_punch": "Kinetic punch",
+  "subtitles.flashmod.decoy_cast": "Afterimage left behind",
+  "subtitles.flashmod.decoy_shatter": "Afterimage shatters",
+  "subtitles.flashmod.rewind": "Time rewinds",
+  "subtitles.flashmod.rewind_end": "Time snaps back"
 }

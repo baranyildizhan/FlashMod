@@ -54,7 +54,7 @@ public final class SpeedFx {
         dev.baranhan.flashmod.client.ultimate.UltState ult = dev.baranhan.flashmod.client.ultimate.UltDirector.forCaster(p.getId());
         float ut = ult != null && ult.abortAt < 0 ? ult.t(0F) : -1F;
         boolean ultActive = ut >= 0F && ut < dev.baranhan.flashmod.ultimate.UltimatePhase.DURATION;
-        p.noCulling = e.blitz || e.tornado || ultActive;
+        p.noCulling = e.blitz || e.tornado || ultActive || dev.baranhan.flashmod.client.skill.SkillClient.rewinding(p.getUUID());
         double x = p.getX(), y = p.getY(), z = p.getZ();
         e.prevSpeed = e.speed;
         if (!e.hasLast) {

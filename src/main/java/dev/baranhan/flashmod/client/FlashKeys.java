@@ -31,6 +31,11 @@ public final class FlashKeys {
     /** Ac/kapa: Speed Force agir cekimi (butun oyun yavaslar, enerji harcar). */
     public static final KeyMapping SLOWMO = key("key.flashmod.slowmo", GLFW.GLFW_KEY_U);
 
+    /** Zaman kalintisi: olduğun yerde donmus goruntun kalir, girdi yonune (yoksa saga) atilirsin. */
+    public static final KeyMapping DECOY = key("key.flashmod.decoy", GLFW.GLFW_KEY_K);
+    /** Geri sarma: son birkac saniyelik yolunu tersine kosarak o ana don. */
+    public static final KeyMapping REWIND = key("key.flashmod.rewind", GLFW.GLFW_KEY_O);
+
     private FlashKeys() {}
 
     private static KeyMapping key(String name, int code) {

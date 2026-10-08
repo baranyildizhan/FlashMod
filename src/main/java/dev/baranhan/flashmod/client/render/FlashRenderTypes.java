@@ -25,7 +25,7 @@ public final class FlashRenderTypes extends RenderType {
                     .setDepthTestState(LEQUAL_DEPTH_TEST)
                     .createCompositeState(false));
 
-    private static final Map<ResourceLocation, RenderType> GHOSTS = new HashMap<>();
+    private static final Map<ResourceLocation, RenderType> GHOSTS = new HashMap<>(), GLOW_GHOSTS = new HashMap<>();
 
     private FlashRenderTypes(String name, VertexFormat format, VertexFormat.Mode mode, int bufferSize,
                              boolean affectsCrumbling, boolean sortOnUpload, Runnable setup, Runnable clear) {
@@ -48,5 +48,23 @@ public final class FlashRenderTypes extends RenderType {
                         .setOverlayState(OVERLAY)
                         .setWriteMaskState(COLOR_WRITE)
                         .createCompositeState(true)));
+    }
+
+    /**
+     * Isiktan hayalet: ayni model, eklemeli (SRC_ALPHA, ONE) karisimla -> skin renkleri isik olarak eklenir,
+     * govde kendinden parlayan bir enerji silueti gibi gorunur (zaman kalintisi, geri sarma yankilari).
+     */
+    public static RenderType glowGhost(ResourceLocation texture) {
+        return GLOW_GHOSTS.computeIfAbsent(texture, tex -> create("flashmod_glow_ghost",
+                DefaultVertexFormat.NEW_ENTITY, VertexFormat.Mode.QUADS, 1536, true, false,
+                CompositeState.builder()
+                        .setShaderState(RENDERTYPE_ENTITY_TRANSLUCENT_SHADER)
+                        .setTextureState(new RenderStateShard.TextureStateShard(tex, false, false))
+                        .setTransparencyState(LIGHTNING_TRANSPARENCY)
+                        .setCullState(NO_CULL)
+                        .setLightmapState(LIGHTMAP)
+                        .setOverlayState(OVERLAY)
+                        .setWriteMaskState(COLOR_WRITE)
+                        .createCompositeState(false)));
     }
 }

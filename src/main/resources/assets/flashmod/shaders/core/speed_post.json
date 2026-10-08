@@ -9,6 +9,7 @@
     { "name": "Shake",      "type": "float", "count": 1, "values": [ 0.0 ] },
     { "name": "Cine",       "type": "float", "count": 1, "values": [ 0.0 ] },
     { "name": "Slow",       "type": "float", "count": 1, "values": [ 0.0 ] },
+    { "name": "Rewind",     "type": "float", "count": 1, "values": [ 0.0 ] },
     { "name": "Time",       "type": "float", "count": 1, "values": [ 0.0 ] },
     { "name": "ScreenSize", "type": "float", "count": 2, "values": [ 1.0, 1.0 ] }
   ]

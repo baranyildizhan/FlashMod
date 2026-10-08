@@ -133,12 +133,57 @@ public final class SpeedHudOverlay {
             g.fill(x + 1, ey + 1, x + 1 + cw, ey + eh - 1, 0xFF000000 | GlowDraw.mixRgb(e.core, 0xFFFFFF, 0.3F));
         }
 
+        // Kinetik yuk (yumrukta biriken) + yeteneklerin bekleme sureleri
+        dev.baranhan.flashmod.client.skill.SkillClient.Info si =
+                dev.baranhan.flashmod.client.skill.SkillClient.info(mc.player.getUUID());
+        long now = mc.level == null ? 0L : mc.level.getGameTime();
+        float kin = Mth.clamp(si.kinetic / 100F, 0F, 1F);
+        boolean kinFull = kin >= 0.999F;
+        int ky = ey + eh + 2, kh = 3;
+        g.fill(x, ky, x + ew, ky + kh, 0x90000000);
+        int kinW = Math.round((ew - 2) * kin);
+        int kinCol = kinFull ? GlowDraw.mixRgb(e.core, 0xFFFFFF, 0.35F + 0.35F * pulse) : GlowDraw.mixRgb(e.core, e.glow, 0.35F);
+        if (kinW > 0) g.fill(x + 1, ky + 1, x + 1 + kinW, ky + kh - 1, 0xFF000000 | kinCol);
+        int cy = ky + kh + 3, chH = 11, chW = (pw - 3) / 2;
+        float[] ready = new float[2];
+        net.minecraft.client.KeyMapping[] keys = {dev.baranhan.flashmod.client.FlashKeys.DECOY,
+                dev.baranhan.flashmod.client.FlashKeys.REWIND};
+        String[] labels = {"hud.flashmod.decoy", "hud.flashmod.rewind_short"};
+        long[] at = {si.decoyReadyAt, si.rewindReadyAt};
+        int[] total = {Math.max(1, si.decoyTotal), Math.max(1, si.rewindTotal)};
+        for (int i = 0; i < 2; i++) {
+            int cx0 = x + i * (chW + 3);
+            long left = Math.max(0L, at[i] - now);
+            ready[i] = left == 0L ? 1F : 1F - Mth.clamp(left / (float) total[i], 0F, 1F);
+            g.fill(cx0, cy, cx0 + chW, cy + chH, 0x90000000);
+            int pw2 = Math.round((chW - 2) * ready[i]);
+            int fillCol = left == 0L ? GlowDraw.mixRgb(e.glow, 0, 0.45F) : 0x40FFFFFF;
+            g.fill(cx0 + 1, cy + chH - 2, cx0 + 1 + pw2, cy + chH - 1, 0xFF000000 | (fillCol & 0xFFFFFF));
+            String key = keys[i].getTranslatedKeyMessage().getString();
+            if (key.length() > 3) key = key.substring(0, 3);
+            Component lab = left == 0L ? Component.translatable(labels[i])
+                    : Component.literal(String.format(Locale.ROOT, "%.1fs", left / 20F));
+            int tc = left == 0L ? 0xFF000000 | GlowDraw.mixRgb(e.core, 0xFFFFFF, 0.3F) : 0xFF9A9A9A;
+            g.drawString(mc.font, key, cx0 + 3, cy + 1, 0xFF000000 | e.glow, true);
+            g.drawString(mc.font, lab, cx0 + chW - 3 - mc.font.width(lab), cy + 1, tc, true);
+        }
+
         g.flush();
         Matrix4f m = g.pose().last().pose();
         BufferBuilder buf = GlowDraw.beginGui();
         int hot = GlowDraw.mixRgb(e.core, 0xFFFFFF, 0.3F);
         GlowDraw.softRect(buf, m, x + 1, ey + 1, x + 1 + fillW, ey + eh - 1, 2F,
                 GlowDraw.cr(e.glow), GlowDraw.cg(e.glow), GlowDraw.cb(e.glow), 0.35F * pulse);
+        if (kinW > 0) {
+            GlowDraw.softRect(buf, m, x + 1, ky + 1, x + 1 + kinW, ky + kh - 1, kinFull ? 3F : 2F,
+                    GlowDraw.cr(e.core), GlowDraw.cg(e.core), GlowDraw.cb(e.core), (kinFull ? 0.6F : 0.25F) * pulse);
+        }
+        for (int i = 0; i < 2; i++) {
+            if (ready[i] < 1F) continue;
+            int cx0 = x + i * (chW + 3);
+            GlowDraw.softRect(buf, m, cx0 + 1, cy + chH - 2, cx0 + chW - 1, cy + chH - 1, 2F,
+                    GlowDraw.cr(e.glow), GlowDraw.cg(e.glow), GlowDraw.cb(e.glow), 0.5F * pulse);
+        }
         for (int i = 0; i < e.level; i++) {
             int x0 = sx + i * (segW + gap);
             GlowDraw.softRect(buf, m, x0, sy, x0 + segW, sy + segH, 3F,

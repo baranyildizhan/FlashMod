@@ -73,6 +73,11 @@ public final class UltWorldFx {
     }
 
     /** Simsek sekillerinin yenilenme araligi (tick); isiga duyarli modda daha yavas titrer. */
+    /** Disaridan (yetenek efektleri): simsek sekillerinin yenilenme araligi. */
+    public static int regenTicks() {
+        return regen();
+    }
+
     static int regen() {
         return FlashClientConfig.ULT_REDUCE_FLASHES.get() ? 6 : 2;
     }

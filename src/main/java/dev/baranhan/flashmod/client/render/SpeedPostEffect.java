@@ -65,6 +65,7 @@ public final class SpeedPostEffect {
         float target = 0F, phase = 0F, shake = 0F;
         float cine = 0F; // Blitz: ekranda renk/ton efekti yok (sadece sinematik seritler, BlitzClient.renderBars)
         float slow = dev.baranhan.flashmod.client.TimeControlClient.amount(); // zaman yavaslamasi: herkeste hafif mavi ton
+        float rewind = dev.baranhan.flashmod.client.skill.SkillClient.rewindAmount(pt); // kendi geri sarman
         if (e != null && e.active && !e.blitz) {
             float run = Mth.clamp((e.intensity(pt) - 0.15F) / 0.85F, 0F, 1F);
             target = run * 0.65F + e.overdrive(pt) * 0.35F;
@@ -81,9 +82,9 @@ public final class SpeedPostEffect {
         smoothPhase += (phase - smoothPhase) * (1F - (float) Math.exp(-dt * 12.0F));
 
         float strength = FlashClientConfig.POST_STRENGTH.get().floatValue();
-        if (cine > 0.001F || slow > 0.001F) strength = Math.max(strength, 0.6F); // renk ayarlari her zaman
+        if (cine > 0.001F || slow > 0.001F || rewind > 0.001F) strength = Math.max(strength, 0.6F); // renk ayarlari her zaman
         if (strength <= 0F || (smoothIntensity < 0.005F && smoothPhase < 0.005F && shake < 0.005F && cine < 0.005F
-                && slow < 0.005F)) return;
+                && slow < 0.005F && rewind < 0.005F)) return;
 
         RenderTarget main = mc.getMainRenderTarget();
         int w = main.width, h = main.height;
@@ -110,6 +111,7 @@ public final class SpeedPostEffect {
         sh.safeGetUniform("Shake").set(shake * strength);
         sh.safeGetUniform("Cine").set(cine);
         sh.safeGetUniform("Slow").set(slow);
+        sh.safeGetUniform("Rewind").set(rewind);
         sh.safeGetUniform("Time").set(((now % 24000L) + pt) / 20.0F);
         sh.safeGetUniform("ScreenSize").set((float) w, (float) h);
 

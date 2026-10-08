@@ -62,6 +62,7 @@ public final class ClientEvents {
             while (FlashKeys.WARDROBE.consumeClick()) mc.setScreen(new dev.baranhan.flashmod.client.gui.SkinWardrobeScreen(null));
             while (FlashKeys.AERIAL.consumeClick()) CameraModes.aerial = !CameraModes.aerial;
             while (FlashKeys.BLITZ.consumeClick()) tryBlitz(mc);
+            dev.baranhan.flashmod.client.skill.SkillClient.pollKeys(mc);
             while (FlashKeys.ULTIMATE.consumeClick()) {
                 if (!dev.baranhan.flashmod.client.ultimate.UltDirector.inputLocked() && !BlitzClient.localActive() && !Tornado.isActive())
                     FlashNetwork.sendToServer(new dev.baranhan.flashmod.network.UltimateRequestPacket());

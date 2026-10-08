@@ -9,7 +9,7 @@ import net.minecraftforge.network.PacketDistributor;
 import net.minecraftforge.network.simple.SimpleChannel;
 
 public final class FlashNetwork {
-    private static final String VERSION = "10";
+    private static final String VERSION = "11";
     public static final SimpleChannel CHANNEL = NetworkRegistry.newSimpleChannel(
             new ResourceLocation(FlashMod.MODID, "main"),
             () -> VERSION, VERSION::equals, VERSION::equals);
@@ -129,6 +129,24 @@ public final class FlashNetwork {
                 .encoder(AbilitySyncPacket::encode)
                 .decoder(AbilitySyncPacket::decode)
                 .consumerMainThread(AbilitySyncPacket::handle)
+                .add();
+
+        CHANNEL.messageBuilder(SkillCastPacket.class, id++, NetworkDirection.PLAY_TO_SERVER)
+                .encoder(SkillCastPacket::encode)
+                .decoder(SkillCastPacket::decode)
+                .consumerMainThread(SkillCastPacket::handle)
+                .add();
+
+        CHANNEL.messageBuilder(SkillSyncPacket.class, id++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(SkillSyncPacket::encode)
+                .decoder(SkillSyncPacket::decode)
+                .consumerMainThread(SkillSyncPacket::handle)
+                .add();
+
+        CHANNEL.messageBuilder(SkillFxPacket.class, id++, NetworkDirection.PLAY_TO_CLIENT)
+                .encoder(SkillFxPacket::encode)
+                .decoder(SkillFxPacket::decode)
+                .consumerMainThread(SkillFxPacket::handle)
                 .add();
     }
 

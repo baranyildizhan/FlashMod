@@ -7,6 +7,7 @@ uniform float Shake;       // 0..~1.5 ses duvari darbesi
 uniform float Time;        // saniye
 uniform float Cine;        // 0..1 Blitz sinematik renk ayari
 uniform float Slow;        // 0..1 zaman yavaslamasi (hafif mavi ton)
+uniform float Rewind;      // 0..1 geri sarma (bant geri sarilirken: izler, renk kaymasi, tarama cizgileri)
 uniform vec2 ScreenSize;
 
 in vec2 texCoord;
@@ -20,6 +21,16 @@ void main() {
     // --- Ses duvari: kisa, sonumlu goruntu sarsintisi ---
     float t = Time;
     uv += vec2(sin(t * 91.0) + 0.5 * sin(t * 53.0), cos(t * 77.0) + 0.5 * sin(t * 43.0)) * 0.0035 * Shake;
+
+    // --- Geri sarma: yukari kayan bant izleri yatay kaydirir, goruntu hafifce iceri cekilir ---
+    float rb1 = 0.0, rb2 = 0.0;
+    if (Rewind > 0.001) {
+        rb1 = exp(-pow((fract(uv.y - t * 1.05) - 0.5) * 16.0, 2.0));
+        rb2 = exp(-pow((fract(uv.y * 0.6 + 0.37 - t * 0.66) - 0.5) * 28.0, 2.0));
+        float line = hash(floor(uv.y * ScreenSize.y * 0.5) + floor(t * 30.0)) - 0.5;
+        uv.x += (rb1 * 0.03 + rb2 * 0.018) * (0.6 + line) * Rewind + line * 0.0015 * Rewind;
+        uv = 0.5 + (uv - 0.5) * (1.0 - 0.035 * Rewind);
+    }
 
     vec2 c = uv - 0.5;
     float aspect = ScreenSize.x / max(ScreenSize.y, 1.0);
@@ -67,6 +78,22 @@ void main() {
         col *= mix(vec3(1.0), vec3(0.86, 0.95, 1.12), Slow);
         col += vec3(0.0, 0.008, 0.03) * Slow;
         col *= 1.0 - 0.18 * Slow * smoothstep(0.45, 1.1, r);
+        col = clamp(col, 0.0, 1.0);
+    }
+
+    // --- Geri sarma: yatay renk ayrismasi, soluk ve serin ton, tarama cizgileri, bant izlerinde parlama, kar ---
+    if (Rewind > 0.001) {
+        float sh = 0.006 * Rewind;
+        col.r = mix(col.r, texture(Sampler0, uv + vec2(sh, 0.0)).r, 0.8 * Rewind);
+        col.b = mix(col.b, texture(Sampler0, uv - vec2(sh, 0.0)).b, 0.8 * Rewind);
+        float lum = dot(col, vec3(0.299, 0.587, 0.114));
+        col = mix(col, vec3(lum), 0.32 * Rewind);
+        col *= mix(vec3(1.0), vec3(0.9, 0.97, 1.1), Rewind);
+        col *= 1.0 - 0.09 * Rewind * (0.5 + 0.5 * sin(uv.y * ScreenSize.y * 1.4));
+        col += vec3(0.16) * (rb1 + 0.6 * rb2) * Rewind;
+        float sn = hash(floor(uv.x * ScreenSize.x * 0.5) * 7.13 + floor(uv.y * ScreenSize.y * 0.5) * 3.71 + floor(t * 24.0));
+        col += vec3(step(0.9965, sn) * 0.35 * Rewind);
+        col *= 1.0 - 0.22 * Rewind * smoothstep(0.45, 1.1, r);
         col = clamp(col, 0.0, 1.0);
     }
 

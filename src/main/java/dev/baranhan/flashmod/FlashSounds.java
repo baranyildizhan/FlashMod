@@ -63,6 +63,21 @@ public final class FlashSounds {
     /** Yavas cekim: hedef havada asili kalirken (~1 sn, uzayan/derinlesen ugultu). */
     public static final RegistryObject<SoundEvent> ULT_SLOWMO = reg("ult_slowmo");
 
+    // ---------------------------------------------------------------- yetenekler
+    // Dosyalar: assets/flashmod/sounds/skill/<ad>.ogg (sounds.json; liste ve sureler README'de).
+    /** Kinetik yuk doldu (kisa citirti / "hazir"). */
+    public static final RegistryObject<SoundEvent> KINETIC_READY = reg("kinetic_ready");
+    /** Kinetik yumruk (yuk birakildi); tam yukte ustune Blitz finalindeki vanilla katmanlar. */
+    public static final RegistryObject<SoundEvent> KINETIC_PUNCH = reg("kinetic_punch");
+    /** Zaman kalintisi birakildi + yana atilma. */
+    public static final RegistryObject<SoundEvent> DECOY_CAST = reg("decoy_cast");
+    /** Zaman kalintisi parcalandi (statik bosalma) ya da soldu. */
+    public static final RegistryObject<SoundEvent> DECOY_SHATTER = reg("decoy_shatter");
+    /** Geri sarma (ters akan zaman, tum geri sarma boyunca). */
+    public static final RegistryObject<SoundEvent> REWIND = reg("rewind");
+    /** Geri sarma bitti: zaman yerine oturur. */
+    public static final RegistryObject<SoundEvent> REWIND_END = reg("rewind_end");
+
     private static RegistryObject<SoundEvent> reg(String name) {
         return SOUNDS.register(name, () -> SoundEvent.createVariableRangeEvent(new ResourceLocation(FlashMod.MODID, name)));
     }

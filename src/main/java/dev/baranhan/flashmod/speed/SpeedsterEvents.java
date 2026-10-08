@@ -28,11 +28,13 @@ public final class SpeedsterEvents {
             TornadoLogic.serverTick(sp);
             BlitzLogic.serverTick(sp);
             AbilityLogic.serverTick(sp);
+            SkillLogic.serverTick(sp);
             ChunkPreloader.tick(sp);
             // Phasing / tornado: tick sonunda noPhysics=true. Hareket paketleri tick'ler ARASINDA islenir, boylece
             // vanilla'nin "duvara girdi / yanlis hareket -> geri isinla" kontrolu atlanir (tornado cemberin kirisi
             // boyunca ziplar, aradaki engeller yuzunden geri isinlanmasin). Player.tick bir sonraki tick basinda sifirlar.
-            if (PhaseHelper.isPhasing(sp) || TornadoLogic.isActive(sp)) sp.noPhysics = true;
+            // Geri sarma: istemci kendi gectigi yoldan geri kosar (araya sonradan konan bloklar geri isinlatmasin).
+            if (PhaseHelper.isPhasing(sp) || TornadoLogic.isActive(sp) || SkillLogic.isRewinding(sp)) sp.noPhysics = true;
         }
     }
 
@@ -43,19 +45,29 @@ public final class SpeedsterEvents {
                 && event.getSource().is(DamageTypes.IN_WALL)) {
             event.setCanceled(true);
         }
-        // Blitz sinematigi sirasinda hizci hasar almaz
-        if (event.getEntity() instanceof ServerPlayer sp && BlitzLogic.isActive(sp)) event.setCanceled(true);
+        // Blitz sinematigi ve geri sarma sirasinda hizci hasar almaz
+        if (event.getEntity() instanceof ServerPlayer sp && (BlitzLogic.isActive(sp) || SkillLogic.isRewinding(sp))) {
+            event.setCanceled(true);
+        }
+    }
+
+    /** Kinetik yumruk: biriken yuk oyuncunun bir sonraki dogrudan darbesinde birakilir. */
+    @SubscribeEvent
+    public static void onHurt(net.minecraftforge.event.entity.living.LivingHurtEvent event) {
+        if (!event.getEntity().level().isClientSide) SkillLogic.onHurt(event);
     }
 
     /** Zaman yavaslatma: her sunucu tick'inin basinda oran guncellenir ve herkese gonderilir. */
     @SubscribeEvent
     public static void onServerTick(TickEvent.ServerTickEvent event) {
         if (event.phase == TickEvent.Phase.START) TimeControl.serverTick(event.getServer());
+        else SkillLogic.endServerTick();
     }
 
     @SubscribeEvent
     public static void onServerStopped(net.minecraftforge.event.server.ServerStoppedEvent event) {
         TimeControl.reset();
+        SkillLogic.clearAll();
     }
 
     @SubscribeEvent
@@ -80,17 +92,20 @@ public final class SpeedsterEvents {
         TornadoLogic.forget(event.getEntity().getUUID());
         if (event.getEntity() instanceof ServerPlayer sp) BlitzLogic.forget(sp);
         AbilityLogic.forget(event.getEntity().getUUID());
+        SkillLogic.forget(event.getEntity().getUUID());
         ChunkPreloader.forget(event.getEntity().getUUID());
     }
 
     @SubscribeEvent
     public static void onRespawn(PlayerEvent.PlayerRespawnEvent event) {
         if (event.getEntity() instanceof ServerPlayer sp) FlashNetwork.syncAllToTrackingAndSelf(sp);
+        SkillLogic.reset(event.getEntity());
     }
 
     @SubscribeEvent
     public static void onChangeDimension(PlayerEvent.PlayerChangedDimensionEvent event) {
         if (event.getEntity() instanceof ServerPlayer sp) FlashNetwork.syncAllToTrackingAndSelf(sp);
+        SkillLogic.reset(event.getEntity());
     }
 
     @SubscribeEvent

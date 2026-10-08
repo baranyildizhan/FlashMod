@@ -38,6 +38,23 @@ public final class FlashServerConfig {
     public static final ForgeConfigSpec.BooleanValue ULT_ALLOW_CREATIVE;
     public static final ForgeConfigSpec.BooleanValue ULT_ALLOW_AIRBORNE;
     public static final ForgeConfigSpec.DoubleValue ULT_ENERGY;
+    public static final ForgeConfigSpec.BooleanValue KINETIC_ENABLED;
+    public static final ForgeConfigSpec.DoubleValue KINETIC_GAIN;
+    public static final ForgeConfigSpec.DoubleValue KINETIC_MIN;
+    public static final ForgeConfigSpec.DoubleValue KINETIC_DAMAGE;
+    public static final ForgeConfigSpec.DoubleValue KINETIC_KNOCKBACK;
+    public static final ForgeConfigSpec.BooleanValue DECOY_ENABLED;
+    public static final ForgeConfigSpec.DoubleValue DECOY_ENERGY;
+    public static final ForgeConfigSpec.IntValue DECOY_COOLDOWN;
+    public static final ForgeConfigSpec.IntValue DECOY_LIFETIME;
+    public static final ForgeConfigSpec.DoubleValue DECOY_DASH;
+    public static final ForgeConfigSpec.DoubleValue DECOY_DISCHARGE;
+    public static final ForgeConfigSpec.IntValue DECOY_VANISH_TICKS;
+    public static final ForgeConfigSpec.BooleanValue REWIND_ENABLED;
+    public static final ForgeConfigSpec.DoubleValue REWIND_ENERGY;
+    public static final ForgeConfigSpec.IntValue REWIND_COOLDOWN;
+    public static final ForgeConfigSpec.DoubleValue REWIND_SECONDS;
+    public static final ForgeConfigSpec.BooleanValue REWIND_HEAL;
     public static final ForgeConfigSpec.BooleanValue CHUNK_PRELOAD;
     public static final ForgeConfigSpec.DoubleValue CHUNK_PRELOAD_SECONDS;
     public static final ForgeConfigSpec.IntValue CHUNK_PRELOAD_MAX_BLOCKS;
@@ -100,6 +117,35 @@ public final class FlashServerConfig {
         ULT_ALLOW_CREATIVE = b.define("allowTargetCreative", false);
         ULT_ALLOW_AIRBORNE = b.define("allowAirborne", true);
         ULT_ENERGY = b.comment("Speed Force energy cost (energy bar max 100).").defineInRange("energyCost", 60.0D, 0.0D, 100.0D);
+        b.pop();
+
+        b.push("kinetic");
+        KINETIC_ENABLED = b.comment("Kinetic charge: running stores energy in your fist, the next punch releases it.")
+                .define("enabled", true);
+        KINETIC_GAIN = b.comment("Charge gained per block run (charge max 100).").defineInRange("gainPerBlock", 1.6D, 0.0D, 50.0D);
+        KINETIC_MIN = b.comment("Minimum charge a punch needs to release it.").defineInRange("minimumCharge", 25.0D, 0.0D, 100.0D);
+        KINETIC_DAMAGE = b.comment("Extra punch damage at full charge (scales linearly with charge).")
+                .defineInRange("maxBonusDamage", 10.0D, 0.0D, 1000.0D);
+        KINETIC_KNOCKBACK = b.comment("Knockback speed at full charge (blocks/tick).").defineInRange("maxKnockback", 2.4D, 0.0D, 10.0D);
+        b.pop();
+
+        b.push("decoy");
+        DECOY_ENABLED = b.comment("Afterimage decoy: leave a frozen afterimage that draws mobs, dash away.").define("enabled", true);
+        DECOY_ENERGY = b.comment("Speed Force energy cost.").defineInRange("energyCost", 20.0D, 0.0D, 100.0D);
+        DECOY_COOLDOWN = b.comment("Cooldown in seconds.").defineInRange("cooldownSeconds", 8, 0, 600);
+        DECOY_LIFETIME = b.comment("How long the afterimage lasts (seconds).").defineInRange("lifetimeSeconds", 8, 1, 60);
+        DECOY_DASH = b.comment("Dash distance (blocks).").defineInRange("dashDistance", 7.0D, 0.0D, 20.0D);
+        DECOY_DISCHARGE = b.comment("Damage of the static discharge when the afterimage is struck (3.5 block radius).")
+                .defineInRange("dischargeDamage", 4.0D, 0.0D, 1000.0D);
+        DECOY_VANISH_TICKS = b.comment("Invisibility after the dash (ticks, 0 = none).").defineInRange("vanishTicks", 30, 0, 200);
+        b.pop();
+
+        b.push("rewind");
+        REWIND_ENABLED = b.comment("Rewind: run back along your own path to where you were a few seconds ago.").define("enabled", true);
+        REWIND_ENERGY = b.comment("Speed Force energy cost.").defineInRange("energyCost", 35.0D, 0.0D, 100.0D);
+        REWIND_COOLDOWN = b.comment("Cooldown in seconds.").defineInRange("cooldownSeconds", 25, 0, 600);
+        REWIND_SECONDS = b.comment("How far back in time (seconds).").defineInRange("seconds", 5.0D, 1.0D, 10.0D);
+        REWIND_HEAL = b.comment("Health returns to what it was back then (never lower than now).").define("restoreHealth", true);
         b.pop();
 
         b.push("chunks");

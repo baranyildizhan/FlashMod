@@ -370,8 +370,9 @@ public final class BlitzAnim {
             ClientSpeedsters.Entry e = ClientSpeedsters.get(pl.getUUID());
             if (e == null) return;
             if (!e.blitz || e.blitzFrame == null) {
-                // Blitz disi: mizrak sarji kol pozu
+                // Blitz disi: mizrak sarji kol pozu, kinetik yumruk
                 AbilityClient.applyArm(e, model, pt);
+                dev.baranhan.flashmod.client.skill.SkillClient.applyPose(pl, model, pt);
                 return;
             }
             speedsterPose(BlitzClient.renderTime(e, pt), POSE);

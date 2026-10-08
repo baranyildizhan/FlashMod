@@ -38,11 +38,14 @@ public final class ClientModEvents {
         event.register(FlashKeys.ULTIMATE);
         event.register(FlashKeys.ULTIMATE_SKIP);
         event.register(FlashKeys.SLOWMO);
+        event.register(FlashKeys.DECOY);
+        event.register(FlashKeys.REWIND);
     }
 
     @SubscribeEvent
     public static void onOverlays(RegisterGuiOverlaysEvent event) {
         event.registerAbove(VanillaGuiOverlay.VIGNETTE.id(), "speed_effects", SpeedHudOverlay::renderEffects);
+        event.registerAbove(VanillaGuiOverlay.VIGNETTE.id(), "skill_rewind", dev.baranhan.flashmod.client.skill.SkillOverlay::render);
         event.registerAboveAll("speed_hud", SpeedHudOverlay::renderHud);
         event.registerAboveAll("blitz_bars", BlitzClient::renderBars);
         event.registerAboveAll("flash_ultimate", dev.baranhan.flashmod.client.ultimate.UltOverlay::render);
@@ -51,6 +54,7 @@ public final class ClientModEvents {
     @SubscribeEvent
     public static void onRenderers(EntityRenderersEvent.RegisterRenderers event) {
         event.registerEntityRenderer(FlashEntities.LIGHTNING_SPEAR.get(), LightningSpearRenderer::new);
+        event.registerEntityRenderer(FlashEntities.AFTERIMAGE.get(), dev.baranhan.flashmod.client.render.AfterimageRenderer::new);
     }
 
     /** Post-processing icin core shader (assets/flashmod/shaders/core/speed_post.*). Shader pack gerektirmez. */

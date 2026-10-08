@@ -224,5 +224,53 @@
         "stream": true
       }
     ]
+  },
+  "kinetic_ready": {
+    "subtitle": "subtitles.flashmod.kinetic_ready",
+    "sounds": [
+      {
+        "name": "flashmod:skill/kinetic_ready"
+      }
+    ]
+  },
+  "kinetic_punch": {
+    "subtitle": "subtitles.flashmod.kinetic_punch",
+    "sounds": [
+      {
+        "name": "flashmod:skill/kinetic_punch"
+      }
+    ]
+  },
+  "decoy_cast": {
+    "subtitle": "subtitles.flashmod.decoy_cast",
+    "sounds": [
+      {
+        "name": "flashmod:skill/decoy_cast"
+      }
+    ]
+  },
+  "decoy_shatter": {
+    "subtitle": "subtitles.flashmod.decoy_shatter",
+    "sounds": [
+      {
+        "name": "flashmod:skill/decoy_shatter"
+      }
+    ]
+  },
+  "rewind": {
+    "subtitle": "subtitles.flashmod.rewind",
+    "sounds": [
+      {
+        "name": "flashmod:skill/rewind"
+      }
+    ]
+  },
+  "rewind_end": {
+    "subtitle": "subtitles.flashmod.rewind_end",
+    "sounds": [
+      {
+        "name": "flashmod:skill/rewind_end"
+      }
+    ]
   }
 }

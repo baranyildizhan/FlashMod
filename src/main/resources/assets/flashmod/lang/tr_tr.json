@@ -87,5 +87,20 @@
   "subtitles.flashmod.ult_wind": "Rüzgar uğulduyor",
   "subtitles.flashmod.ult_focus": "Hızcı yere iniyor, odak",
   "subtitles.flashmod.ult_slowmo": "Zaman yavaşladı",
-  "key.flashmod.ultimate_skip": "Ultimate sinematiğini atla"
+  "key.flashmod.ultimate_skip": "Ultimate sinematiğini atla",
+  "key.flashmod.decoy": "Zaman kalıntısı",
+  "key.flashmod.rewind": "Geri sarma",
+  "hud.flashmod.decoy": "Kalıntı",
+  "hud.flashmod.rewind_short": "Geri sar",
+  "hud.flashmod.rewind": "◀◀ GERİ SARIYOR",
+  "msg.flashmod.skill_cooldown": "Henüz hazır değil (%s sn)",
+  "msg.flashmod.skill_energy": "Yeterli Speed Force yok",
+  "msg.flashmod.rewind_short": "Geri saracak kadar geçmiş yok",
+  "entity.flashmod.afterimage": "Zaman Kalıntısı",
+  "subtitles.flashmod.kinetic_ready": "Kinetik yük doldu",
+  "subtitles.flashmod.kinetic_punch": "Kinetik yumruk",
+  "subtitles.flashmod.decoy_cast": "Zaman kalıntısı bırakıldı",
+  "subtitles.flashmod.decoy_shatter": "Kalıntı parçalandı",
+  "subtitles.flashmod.rewind": "Zaman geri sarılıyor",
+  "subtitles.flashmod.rewind_end": "Zaman yerine oturdu"
 }
